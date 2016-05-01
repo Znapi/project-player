@@ -1,0 +1,111 @@
+{
+	"objName": "Stage",
+	"variables": [{
+			"name": "test var 1",
+			"value": " ωørld!",
+			"isPersistent": false
+		},
+		{
+			"name": "test var 2",
+			"value": 2,
+			"isPersistent": false
+		}],
+	"lists": [{
+			"listName": "test list",
+			"contents": ["thing", "thing", "thing"],
+			"isPersistent": false,
+			"x": 5,
+			"y": 59,
+			"width": 104,
+			"height": 204,
+			"visible": true
+		},
+		{
+			"listName": "test list 2",
+			"contents": [],
+			"isPersistent": false,
+			"x": 5,
+			"y": 266,
+			"width": 104,
+			"height": 204,
+			"visible": true
+		}],
+	"scripts": [[10,
+			10,
+			[["whenGreenFlag"],
+			 ["changeVar:by:", "test var 2", 1],
+			 ["say:", ["concatenate:with:", ["*", ["readVariable", "test var 2"], 3], " world"]]]],
+		 [10,
+			40,
+			[["whenGreenFlag"],
+			 ["say:", ["concatenate:with:", "Hello", ["readVariable", "test var 1"]]]]]],
+	"costumes": [{
+			"costumeName": "backdrop1",
+			"baseLayerID": 1,
+			"baseLayerMD5": "b61b1077b0ea1931abee9dbbfa7903ff.png",
+			"bitmapResolution": 2,
+			"rotationCenterX": 480,
+			"rotationCenterY": 360
+		}],
+	"currentCostumeIndex": 0,
+	"penLayerMD5": "5c81a336fab8be57adc039a8a2b33ca9.png",
+	"penLayerID": 0,
+	"tempoBPM": 60,
+	"videoAlpha": 0.5,
+	"children": [{
+			"target": "Stage",
+			"cmd": "getVar:",
+			"param": "test var 1",
+			"color": 15629590,
+			"label": "test var 1",
+			"mode": 1,
+			"sliderMin": 0,
+			"sliderMax": 100,
+			"isDiscrete": true,
+			"x": 5,
+			"y": 5,
+			"visible": true
+		},
+		{
+			"target": "Stage",
+			"cmd": "getVar:",
+			"param": "test var 2",
+			"color": 15629590,
+			"label": "test var 2",
+			"mode": 1,
+			"sliderMin": 0,
+			"sliderMax": 100,
+			"isDiscrete": true,
+			"x": 5,
+			"y": 32,
+			"visible": true
+		},
+		{
+			"listName": "test list",
+			"contents": ["thing", "thing", "thing"],
+			"isPersistent": false,
+			"x": 5,
+			"y": 59,
+			"width": 104,
+			"height": 204,
+			"visible": true
+		},
+		{
+			"listName": "test list 2",
+			"contents": [],
+			"isPersistent": false,
+			"x": 5,
+			"y": 266,
+			"width": 104,
+			"height": 204,
+			"visible": true
+		}],
+	"info": {
+		"swfVersion": "v445.2",
+		"spriteCount": 0,
+		"videoOn": false,
+		"scriptCount": 1,
+		"userAgent": "Scratch 2.0 Offline Editor",
+		"flashVersion": "MAC 20,0,0,228"
+	}
+}

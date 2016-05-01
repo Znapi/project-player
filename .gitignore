@@ -1,3 +1,10 @@
+bin/*
+!bin/makefile
+!bin/*.*
+bin/*.o
+
+*~
+
 .DS_Store
 .DS_Store?
 ._*
@@ -5,9 +12,3 @@
 .Trashes
 ehthumbs.db
 Thumbs.db
-
-bin/
-!bin/*.txt
-!bin/*.json
-!bin/*.png
-*~
