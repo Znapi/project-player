@@ -7,4 +7,7 @@ ehthumbs.db
 Thumbs.db
 
 bin/
+!bin/*.txt
+!bin/*.json
+!bin/*.png
 *~
