@@ -256,4 +256,3 @@ Value copySimplifiedValue(const Value value) {
 	else
 		return value;
 }
-
