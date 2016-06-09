@@ -83,6 +83,7 @@ static Block* bf_is_less(const Block *const block, Value *const reportSlot, cons
 }
 
 static Block* bf_is_equal(const Block *const block, Value *const reportSlot, const Value arg[]) {
+	puts("bf_is_equal");
 	double arg0, arg1;
 	if(tryToFloating(arg[0], &arg0)) {
 		if(tryToFloating(arg[1], &arg1))
@@ -222,6 +223,7 @@ static Block* bf_compute_math_function(const Block *const block, Value *const re
 }
 
 static Block* bf_concatenate(const Block *const block, Value *const reportSlot, const Value arg[]) {
+	puts("bf_concatenate");
 	char *arg0, *arg1, *r;
 	toString(arg[0], &arg0);
 	toString(arg[1], &arg1);
@@ -262,13 +264,12 @@ static Block* bf_get_character(const Block *const block, Value *const reportSlot
 
 // Control
 static Block* bf_do_if(const Block *const block, Value *const reportSlot, const Value arg[]) {
+	puts("bf_do_if");
 	if(toBoolean(arg[0])) {
-		//puts("TRUE");
 		// go inside C of if block
 		return block->p.subStacks[0]; // advance thread to stub block inside of if block
 	}
 	else {
-		//puts("FALSE");
 		// skip past C if block
 		return block->p.subStacks[1]; // advance thread to stub block at end of if block
 	}
@@ -328,6 +329,7 @@ static Block* bf_stop_scripts(const Block *const block, Value *const reportSlot,
 }
 
 static Block* bf_get_variable(const Block *const block, Value *const reportSlot, const Value arg[]) {
+	puts("bf_get_variable");
 	char *name;
 	toString(arg[0], &name);
 	*reportSlot = getVariable(&activeContext->spriteCtx->variables, name);
@@ -342,6 +344,7 @@ static Block* bf_variable_set(const Block *const block, Value *const reportSlot,
 }
 
 static Block* bf_variable_change(const Block *const block, Value *const reportSlot, const Value arg[]) {
+	puts("bf_variable_change");
 	char *name;
 	toString(arg[0], &name);
 

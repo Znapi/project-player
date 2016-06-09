@@ -32,6 +32,8 @@
 #include <math.h>
 #include <time.h>
 
+#include "ut/dynarray.h"
+
 #include "types/primitives.h"
 #include "types/value.h"
 #include "types/block.h"
@@ -51,7 +53,7 @@ static clock_t dtime;
 static Variable *stageVariables;
 static List *stageLists;
 
-/* An item in the linked list of ThreadContexts, despite being called ThreadContextList */
+/* An *item* in the linked list of ThreadContexts, despite being called a "...List" */
 struct ThreadContextList {
 	struct ThreadContext *context;
 	struct ThreadContextList *next;
@@ -63,11 +65,13 @@ static ThreadContextList contexts = {NULL, NULL}; // stub item that points to th
 static const clock_t workTime = (clock_t).75f * 1000 / 30; // work only for 75% of the alloted frame time. taken from Flash version.
 static bool doRedraw, doYield;
 
-/** Counters
-		Counters allow a block functions to store a float or integer between invocations
-		(e.g. bf_repeat counts iterations).
-		This is partly how I could treat control structure blocks like any other block.
-    This gives them more power. **/
+/**
+	 Counters
+
+	 Counters allow a block functions to store a float or integer between invocations
+	 (e.g. bf_repeat counts iterations).
+	 This allows control structure blocks to be treated like any other block.
+**/
 
 /* alloc is not quite the right term, but I couldn't think of a better one */
 static bool allocCounter(const Block *const block) {
@@ -111,9 +115,17 @@ static inline void fsetCounter(const float newValue) {
 
 /** Include the runtime library and hash value table **/
 #include "runtime_lib.c"
-#include "perfect_hashes/opstable.c"
+#include "blockhash/opstable.c"
 
-/** Interpreter **/
+/**
+	 Stack Frame Handling
+**/
+
+// TODO
+
+/**
+	 Interpreter
+**/
 
 /* basically `evalCmd` in the Flash version */
 static const Block* interpret(const Block block[], Value stack[], Value *const reportSlot, const ufastest level) {
@@ -157,6 +169,7 @@ ThreadContext createThreadContext(SpriteContext *const spriteContext, const Bloc
 	ThreadContext new = {
 		malloc(16*sizeof(Value)),
 		block,
+		NULL,
 		0,
 		{malloc(16*sizeof(union Counter)), malloc(16*sizeof(Block *)), 0},
 		spriteContext

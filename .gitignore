@@ -1,7 +1,6 @@
-bin/*
-!bin/makefile
-!bin/*.*
-bin/*.o
+*.o
+*.exe
+*.mphf
 
 *~
 

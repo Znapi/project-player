@@ -14,9 +14,9 @@
 #pragma once
 
 enum BlockType {
-	s, S,  // stack block, blocking stack block
-	r, //R,  // reporter, blocking reporter
-	b, //B,  // boolean
+	s,     // stack block
+	r,     // reporter
+	b,     // boolean
 	h,     // hat
 	f,     // cap (final)
 	c, cf, // C block, capped C block
@@ -88,19 +88,19 @@ const struct BlockSpec specs[] = {
 	{"sceneName", "bf_noop", r},
 	{"scale", "bf_noop", r},
 
-	{"startSceneAndWait", "bf_noop", S},
+	{"startSceneAndWait", "bf_noop", s},
 	{"nextScene", "bf_noop", s},
 
 	{"backgroundIndex", "bf_noop", r},
 
 	// Sound
 	{"playSound:", "bf_noop", s},
-	{"doPlaySoundAndWait", "bf_noop", S},
+	{"doPlaySoundAndWait", "bf_noop", s},
 	{"stopAllSounds", "bf_noop", s},
 
 	{"playDrum", "bf_noop", s},
-	{"rest:elapsed:from:", "bf_noop", S},
-	{"noteOn:duration:elapsed:from:", "bf_noop", S},
+	{"rest:elapsed:from:", "bf_noop", s},
+	{"noteOn:duration:elapsed:from:", "bf_noop", s},
 
 	{"instrument:", "bf_noop", s},
 
@@ -139,16 +139,16 @@ const struct BlockSpec specs[] = {
 
 	{"whenIReceive", "bf_noop", h},
 	{"broadcast:", "bf_noop", s},
-	{"doBroadcastAndWait", "bf_noop", S},
+	{"doBroadcastAndWait", "bf_noop", s},
 
 	// Control
-	{"wait:elapsed:from:", "bf_do_wait", S},
+	{"wait:elapsed:from:", "bf_do_wait", s},
 
 	{"doRepeat", "bf_do_repeat", c},
 	{"doForever", "bf_noop", cf},
 	{"doIf", "bf_do_if", c},
 	{"doIfElse", "bf_do_if_else", e},
-	{"doWaitUntil", "bf_noop", S},
+	{"doWaitUntil", "bf_noop", s},
 	{"doUntil", "bf_do_until", c},
 
 	{"stopScripts", "bf_stop_scripts", f}, // the type of this block depends on it's arguments
@@ -163,7 +163,7 @@ const struct BlockSpec specs[] = {
 	{"color:sees:", "bf_noop", b},
 	{"distanceTo:", "bf_noop", r},
 
-	{"doAsk", "bf_noop", S},
+	{"doAsk", "bf_noop", s},
 	{"answer", "bf_noop", r},
 
 	{"keyPressed:", "bf_noop", b},
@@ -243,7 +243,7 @@ const struct BlockSpec specs[] = {
 	{"getUserID", "bf_noop", r},
 
 	// Scratch 1.4 blocks obselete in 2.0
-	{"drum:duration:elapsed:from:", "bf_noop", S},
+	{"drum:duration:elapsed:from:", "bf_noop", s},
 	{"midiInstrument:", "bf_noop", s},
 	{"isLoud", "bf_noop", b},
 

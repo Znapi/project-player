@@ -152,7 +152,7 @@ static bool newPlayer(/* const char *const projectPath */void) {
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-#define SHADER_DIR "/Users/znapi/Programming/project-player/src/"
+#define SHADER_DIR "src/"
 	GLint vertexShader = compileShader(SHADER_DIR"sprite.vert.glsl", GL_VERTEX_SHADER);
 	GLint fragmentShader = compileShader(SHADER_DIR"sprite.frag.glsl", GL_FRAGMENT_SHADER);
 	if(vertexShader == 0 || fragmentShader == 0) // if shaders could not be compiled
@@ -220,7 +220,7 @@ static bool newPlayer(/* const char *const projectPath */void) {
 	glBindBufferBase(GL_UNIFORM_BUFFER, 0, fxUBO);
 
 	int width, height;
-	ubyte* image = SOIL_load_image("/Users/znapi/Programming/project-player/bin/costume.png", &width, &height, 0, SOIL_LOAD_RGBA);
+	ubyte* image = SOIL_load_image("costume.png", &width, &height, 0, SOIL_LOAD_RGBA);
 	if(image == NULL)
 		puts("[ERROR]Could not load costume");
 

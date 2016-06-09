@@ -12,6 +12,8 @@ struct ThreadContext {
 	struct Value *stack; // A pointer to this thread's stack / argument pool
 	const struct Block *nextBlock; // pointer to next block[]
 
+	dynarray *nextBlocks; // stack of blocks to advance to when current stack runs out
+
 	clock_t lastTime;
 
 	struct {
@@ -21,7 +23,9 @@ struct ThreadContext {
 	} counters;
 
 	struct SpriteContext *const spriteCtx; // where sprite/stage attributes/variables can be accessed
-	//struct ThreadContext * const parent; // a pointer to the parent thread
+
+	//struct Variable **parameters; // custom block parameters
+	//struct Variable **parametersOfPrevStacks; // if only Scratch had a proper scoping system...can't wait to see how Scratch 3 will handle it
 };
 typedef struct ThreadContext ThreadContext;
 

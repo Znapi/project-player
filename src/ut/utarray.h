@@ -224,16 +224,16 @@ typedef struct {
 
 /* Places the actual array in a minimally sized contiguous allocation (using realloc) and frees the UT_array (the metadata, `a`).
 	 The addresses of elements is not guarenteed to stay the same.
-	 `f` is pointed to the minimally sized allocation.
-	 `a` becomes invalid. */
+	 `f` is a pointer that this macro points to the new allocation.
+	 `a` is a pointer to the UT_array and becomes invalid. */
 #define utarray_finalize(a,f) {									\
 		(f) = reallocf((a)->d, (a)->icd.sz*(a)->i);	\
 		free(a);																		\
 	}
 
-/* Leaves the UT_array untouched, but copies all the elements to a new, minimally sized allocation (allocated using malloc).
-	 `f` is pointed to the new allocation.
-	 `a` is still perfectly valid, and retains the original copy of the elements. */
+/* Leaves the UT_array untouched, but copies all the elements to a new, minimally sized, contiguous allocation (allocated using malloc).
+	 `f` is a pointer that this macro points to the new allocation.
+	 `a` is a pointer to the UT_array and will still be perfectly valid. */
 #define utarray_extract(a,f) {										\
 		(f) = malloc((a)->icd.sz*(a)->i);							\
 		memcpy((void*)f, (a)->d, (a)->icd.sz*(a)->i);	\
