@@ -25,8 +25,8 @@ player: $(addprefix obj/, $(addsuffix .o, $(PLAYER_MODS)))
 	$(CC) -o $@ $^ $(LIBS) -framework OpenGL -framework SDL2 -framework Cocoa $(GLOBAL_FLAGS)
 
 JSON_PARSER_MODS=json_parser runtime variables value strpool jsmn
-json_parser: $(addprefix obj/, $(addsuffix .o, $(JSON_PARSER_MODS)))
-	$(CC) -o $@ $^ $(LIBS) $(GLOBAL_FLAGS)
+json_parser: $(addprefix obj/, $(addsuffix .o, $(JSON_PARSER_MODS))) blockops.mphf
+	$(CC) -o $@ $(filter-out %.mphf, $^) $(LIBS) $(GLOBAL_FLAGS)
 
 PHTG_MODS=phtg
 phtg: $(addprefix obj/, $(addsuffix .o, $(PHTG_MODS)))
@@ -42,6 +42,7 @@ DEPS=$(addprefix obj/, $(addsuffix .d, \
 
 .PHONY: deps
 deps: $(DEPS)
+	@echo Made dependencies.
 
 obj/%.d: src/%.c
 	@set -e; rm -f $@; \
@@ -70,6 +71,9 @@ BLOCKHASH_GENERATED_FILES=blockops.mphf blockhash/opstable.c blockhash/typestabl
 .PHONY: blockhash
 blockhash: phtg
 	rm -f $(BLOCKHASH_GENERATED_FILES)
+	./phtg
+
+$(BLOCKHASH_GENERATED_FILES): phtg
 	./phtg
 
 ### cleaning
