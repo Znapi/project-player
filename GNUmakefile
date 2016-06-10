@@ -5,34 +5,57 @@ WARNING_FLAGS=-Wall
 #-Waddress -Warray-bounds -Wchar-subscripts -Wenum-compare -Wimplicit-int -Wimplicit-function-declaration -Wformat -Wmain -Wmissing-braces -Wnonnull -Wopenmp-clauses -Wparentheses -Wpointer-sign -Wreorder -Wreturn-type -Wsequence-point -Wstrict-aliasing -Wstrict-overflow=1 -Wswitch -Wtautological-compare -Wtrigraphs -Wuninitialized -Wunknown-pragmas -Wunused-label -Wunused-value -Wunused-variable -Wvolatile-register-var -Wconsumed -Wempty-body -Wignored-qualifiers -Wmissing-field-initializers -Wout-of-line-declaration -Wtype-limits -Wshift-sign-overflow
 ## excluded warnings
 #-Wcomment
-# incompatable warnings
+## incompatable warnings
 #-Warray-bounds=1 -Wbool-compare -Wmaybe-uninitialized -Wopenmp-simd -Wsign-compare -Wunused-function -Wclobbered -Wmissing-parameter-type -Wold-style-declaration -Woverride-init -Wshift-negative-value -Wunused-but-set-parameter -Wunused-parameter
 
 INCLUDE_PATHS=
 LIBS=-lSOIL -lcmph
-
-GLOBAL_FLAGS=$(LIBS) -O0 -g -fstandalone-debug
-CFLAGS=$(WARNING_FLAGS) -DHASH_FUNCTION=HASH_OAT $(GLOBAL_FLAGS) $(INCLUDE_PATHS)
+GLOBAL_FLAGS=-O0 -g -fstandalone-debug
+CFLAGS=-DHASH_FUNCTION=HASH_OAT $(WARNING_FLAGS) $(GLOBAL_FLAGS) $(INCLUDE_PATHS)
 
 ### building the executables
 
+EXECUTABLES=phtg player json_parser
+
 .PHONY: all
-all: phtg.exe player.exe json_parser.exe
+all: $(EXECUTABLES)
 
-PLAYER_OBJS=main.o runtime.o variables.o value.o strpool.o
-player.exe: $(addprefix obj/, $(PLAYER_OBJS))
-	$(CC) -o $@ $^ -framework OpenGL -framework SDL2 -framework Cocoa $(GLOBAL_FLAGS)
+PLAYER_MODS=main runtime variables value strpool
+player: $(addprefix obj/, $(addsuffix .o, $(PLAYER_MODS)))
+	$(CC) -o $@ $^ $(LIBS) -framework OpenGL -framework SDL2 -framework Cocoa $(GLOBAL_FLAGS)
 
-JSON_PARSER_OBJS=json_parser.o runtime.o variables.o value.o strpool.o jsmn.o
-json_parser.exe: $(addprefix obj/, $(JSON_PARSER_OBJS))
-	$(CC) -o $@ $^ $(GLOBAL_FLAGS)
+JSON_PARSER_MODS=json_parser runtime variables value strpool jsmn
+json_parser: $(addprefix obj/, $(addsuffix .o, $(JSON_PARSER_MODS)))
+	$(CC) -o $@ $^ $(LIBS) $(GLOBAL_FLAGS)
 
-phtg.exe: $(addprefix obj/, phtg.o)
+PHTG_MODS=phtg
+phtg: $(addprefix obj/, $(addsuffix .o, $(PHTG_MODS)))
 	$(CC) -o $@ $^ -lcmph
 
-TEST_RUNTIME_OBJS=runtime.o variables.o value.o strpool.o
-test_runtime.exe: $(addprefix obj/, $(TEST_RUNTIME_OBJS))
+TEST_RUNTIME_MODS=runtime variables value strpool
+test_runtime.exe: $(addprefix obj/, $(addsuffix .o, $(TEST_RUNTIME_MODS)))
 	$(CC) -o $@ $^ -lcheck $(GLOBAL_FLAGS)
+
+
+DEPS=$(addprefix obj/, $(addsuffix .d, \
+	$(sort $(PLAYER_MODS) $(JSON_PARSER_MODS) $(PHTG_MODS) $(TEST_RUNTIME_MODS))))
+
+.PHONY: deps
+deps: $(DEPS)
+
+obj/%.d: src/%.c
+	@set -e; rm -f $@; \
+	$(CC) -MM $(CFLAGS) $< > $@.$$$$; \
+	sed 's,\($*\)\.o[ :]*,\1.o $@ : ,g' < $@.$$$$ > $@; \
+	rm -f $@.$$$$
+
+obj/%.d: src/*/%.c
+	@set -e; rm -f $@; \
+	$(CC) -MM $(CFLAGS) $< > $@.$$$$; \
+	sed 's,\($*\)\.o[ :]*,\1.o $@ : ,g' < $@.$$$$ > $@; \
+	rm -f $@.$$$$
+
+include $(DEPS)
 
 obj/%.o: */%.c
 	$(CC) $(CFLAGS) -c -o $@ $<
@@ -40,28 +63,14 @@ obj/%.o: */%.c
 obj/%.o: */*/%.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-obj/main.o: $(addprefix src/, main.c)
-obj/json_parser.o: $(addprefix src/, json_parser.c)
-obj/runtime.o: $(addprefix src/, runtime.c runtime_lib.c)
-obj/variables.o: $(addprefix src/, variables.c variables.h)
-obj/value.o: $(addprefix src/, value.c value.h)
-obj/strpool.o: $(addprefix src/, strpool.c strpool.h)
-obj/jsmn.o: $(addprefix src/, jsmn/jsmn.c jsmn/jsmn.h)
-
-obj/phtg.o: $(addprefix src/blockhash/, phtg.c specs.h)
-
-obj/test_runtime.o: $(addprefix src/, test_runtime.c)
-
 ### building the blockhash tables
 
 BLOCKHASH_GENERATED_FILES=blockops.mphf blockhash/opstable.c blockhash/typestable.c blockhash/map.txt
 
 .PHONY: blockhash
-blockhash: $(BLOCKHASH_GENERATED_FILES)
-
-$(BLOCKHASH_GENERATED_FILES): phtg.exe
+blockhash: phtg
 	rm -f $(BLOCKHASH_GENERATED_FILES)
-	./$^
+	./phtg
 
 ### cleaning
 
@@ -71,4 +80,4 @@ clean:
 	rm -f obj/*
 
 spotless: clean
-	rm -f *.exe
+	rm -f $(EXECUTABLES)

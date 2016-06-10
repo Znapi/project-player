@@ -1,6 +1,10 @@
-*.o
-*.exe
+obj/
 *.mphf
+
+player
+json_parser
+phtg
+
 
 *~
 
