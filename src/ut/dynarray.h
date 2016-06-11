@@ -1,6 +1,6 @@
 /*
-	This is a modified version of utarray.h.
-	ICD's were removed and replaced with just size_t.
+	This is a modified version of utarray.h. It is essentially a stripped
+	down version. ICD's were removed and replaced with just size_t.
 
 Copyright (c) 2008-2014, Troy D. Hanson   http://troydhanson.github.com/uthash/
 All rights reserved.
@@ -24,7 +24,7 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-/* a dynamic array implementation using macros
+/* a dynamic array implementation using macros, based heavily on utarray.h
  */
 #ifndef DYNARRAY_H
 #define DYNARRAY_H
@@ -89,6 +89,7 @@ static inline void dynarray_reserve(dynarray *a, size_t by) {
 #define dynarray_next(a,e) (((e)==NULL) ? dynarray_front(a) : ((((a)->i) > (dynarray_eltidx(a,e)+1)) ? _dynarray_eltptr(a,dynarray_eltidx(a,e)+1) : NULL))
 #define dynarray_prev(a,e) (((e)==NULL) ? dynarray_back(a) : ((dynarray_eltidx(a,e) > 0) ? _dynarray_eltptr(a,dynarray_eltidx(a,e)-1) : NULL))
 #define dynarray_back(a) (((a)->i) ? (_dynarray_eltptr(a,(a)->i-1)) : NULL)
+#define dynarray_back_unsafe(a) (_dynarray_eltptr(a,(a)->i-1))
 #define dynarray_eltidx(a,e) (((char*)(e) >= (char*)((a)->d)) ? (((char*)(e) - (char*)((a)->d))/(size_t)(a)->sz) : -1)
 
 #define dynarray_eltptr(a,j) (((j) < (a)->i) ? _dynarray_eltptr(a,j) : NULL)

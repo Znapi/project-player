@@ -9,15 +9,15 @@ union Counter {
 };
 
 struct ThreadContext {
-	struct Value *stack; // A pointer to this thread's stack / argument pool
+	struct Value *stack; // A pointer to this thread's stack / argument pool TODO: make this a dynarray
 	const struct Block *nextBlock; // pointer to next block[]
 
-	dynarray *nextBlocks; // stack of blocks to advance to when current stack runs out
+	dynarray *nextStacks; // TODO: embed the dynarray into ThreadContext (change declaration to `dynarray nextStacks`, don't use pointer)
 
 	clock_t lastTime;
 
 	struct {
-		union Counter *counters;
+		union Counter *counters; // TODO: make this a dynarray
 		const struct Block **owners;
 		ufastest slotsUsed;
 	} counters;

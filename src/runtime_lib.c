@@ -267,6 +267,7 @@ static Block* bf_do_if(const Block *const block, Value *const reportSlot, const 
 	puts("bf_do_if");
 	if(toBoolean(arg[0])) {
 		// go inside C of if block
+		pushStackFrame(block->p.subStacks+1);
 		return block->p.subStacks[0]; // advance thread to stub block inside of if block
 	}
 	else {

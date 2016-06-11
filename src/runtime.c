@@ -113,19 +113,33 @@ static inline void fsetCounter(const float newValue) {
 	activeContext->counters.counters[activeContext->counters.slotsUsed-1].f = newValue;
 }
 
-/** Include the runtime library and hash value table **/
-#include "runtime_lib.c"
-#include "blockhash/opstable.c"
-
 /**
 	 Stack Frame Handling
+
+	 Originally, the plan was to pre-calculate stack jumps during the parsing stage, but
+	 that required lots of tracking of stacks that I decided to ditch for just using
+	 stack frames. Stack frames also allow for local variables...if they ever come about.
+	 Maybe after I have a working version I will add pre-calcilating stack jumps again.
 **/
 
-// TODO
+static inline void pushStackFrame(Block **const nextStack) {
+	dynarray_push_back(activeContext->nextStacks, nextStack);
+}
+
+static inline void popStackFrame(void) {
+	activeContext->nextBlock = *((Block**)dynarray_back_unsafe(activeContext->nextStacks)); // `unsafe` means don't check if there even is a back
+	dynarray_pop_back(activeContext->nextStacks);
+}
 
 /**
 	 Interpreter
+
+	 This part is extremely similar to Interpreter.as in scratch-flash.
 **/
+
+/** Include the runtime library and hash value table **/
+#include "runtime_lib.c"
+#include "blockhash/opstable.c"
 
 /* basically `evalCmd` in the Flash version */
 static const Block* interpret(const Block block[], Value stack[], Value *const reportSlot, const ufastest level) {
@@ -139,7 +153,7 @@ static const Block* interpret(const Block block[], Value stack[], Value *const r
 			stack[stackPos] = *(next.p.value);
 			++stackPos;
 		}
-		else if(next.level > level) { // it must be a block
+		else if(next.level > level) { // need to recurse
 			const Block *new = interpret(block + blockPos, stack + stackPos + 1, stack + stackPos, level + 1);
 			if(new == NULL)
 				return NULL;
@@ -174,11 +188,13 @@ ThreadContext createThreadContext(SpriteContext *const spriteContext, const Bloc
 		{malloc(16*sizeof(union Counter)), malloc(16*sizeof(Block *)), 0},
 		spriteContext
 	};
+	dynarray_new(new.nextStacks, sizeof(Block*));
 	return new;
 }
 
 void freeThreadContext(const ThreadContext context) {
 	free(context.stack);
+	dynarray_free(context.nextStacks);
 	free(context.counters.counters);
 	free(context.counters.owners);
 }
@@ -215,8 +231,12 @@ static bool stepActiveThread(void) {
 		activeContext->nextBlock = interpret(activeContext->nextBlock, activeContext->stack, NULL, 1);
 		freeStrings(); // free strings allocated to during evaluation
 
-		if(activeContext->nextBlock == NULL)
-			return true;
+		while(activeContext->nextBlock == NULL) {
+			if(dynarray_len(activeContext->nextStacks) != 0)
+				popStackFrame();
+			else
+				return true;
+		}
 	}
 	return false;
 }

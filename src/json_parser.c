@@ -52,7 +52,7 @@ struct parsingData_t {
 	dynarray *valueBuffers; // temporarily store pointers to all of the memory chunks of Values so that they can be freed.
 };
 
-// TODO: free value buffers somewhere
+// TODO: free valueBuffers pointed to by valueBuffers somewhere
 static unsigned int nValueBuffers;
 static const Value *valueBuffers; // store pointers to all of the memory chunks of Values so that they can be freed.
 
@@ -95,7 +95,6 @@ static const Value *valueBuffers; // store pointers to all of the memory chunks 
 			= c->effects.fisheye = c->effects.whirl											\
 			= 0;																												\
 	}
-
 
 static long loadFile(const char *const path, char **const output) {
 	FILE *stream = fopen(path, "rb");
@@ -341,7 +340,7 @@ static void parseScripts(struct parsingData_t *const pd) {
 	puts("scripts");
 	uint16 scriptsToGo, stackBlocksToGo;
 	ubyte j, k;
-	ThreadContext tmpThreadContext = createThreadContext(pd->currentContext, NULL);
+	ThreadContext tmpThreadContext;
 
 	Block *block;
 	Value *valueBuffer;
@@ -357,6 +356,7 @@ static void parseScripts(struct parsingData_t *const pd) {
 
 		if(tokceq("whenGreenFlag")) { // only if it is a hat block (just green flag for now)
 			if(parseStack(pd, stackBlocksToGo, 0)) {
+				tmpThreadContext = createThreadContext(pd->currentContext, NULL);
 
 				dynarray_extract(pd->blockBuffer, block);
 				tmpThreadContext.nextBlock = block;
