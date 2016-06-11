@@ -1,0 +1,5 @@
+# This directory is where all intermediate files for building will be placed.
+# It shall contain no permanent contents, except for this file.
+# This file is to convince git to track this directory.
+*
+!.gitignore

@@ -56,7 +56,7 @@ obj/%.d: src/*/%.c
 	sed 's,\($*\)\.o[ :]*,\1.o $@ : ,g' < $@.$$$$ > $@; \
 	rm -f $@.$$$$
 
-include $(DEPS)
+-include $(DEPS)
 
 obj/%.o: */%.c
 	$(CC) $(CFLAGS) -c -o $@ $<
@@ -69,12 +69,14 @@ obj/%.o: */*/%.c
 BLOCKHASH_GENERATED_FILES=blockops.mphf blockhash/opstable.c blockhash/typestable.c blockhash/map.txt
 
 .PHONY: blockhash
-blockhash: phtg
-	rm -f $(BLOCKHASH_GENERATED_FILES)
+blockhash: clean_blockshash phtg
 	./phtg
 
 $(BLOCKHASH_GENERATED_FILES): phtg
 	./phtg
+
+clean_blockhash:
+	rm -rf $(BLOCKHASH_GENERATED_FILES)
 
 ### cleaning
 
@@ -83,5 +85,5 @@ $(BLOCKHASH_GENERATED_FILES): phtg
 clean:
 	rm -f obj/*
 
-spotless: clean
+spotless: clean clean_blockhash
 	rm -f $(EXECUTABLES)
