@@ -37,13 +37,6 @@ test_runtime.exe: $(addprefix obj/, $(addsuffix .o, $(TEST_RUNTIME_MODS)))
 	$(CC) -o $@ $^ -lcheck $(GLOBAL_FLAGS)
 
 
-DEPS=$(addprefix obj/, $(addsuffix .d, \
-	$(sort $(PLAYER_MODS) $(JSON_PARSER_MODS) $(PHTG_MODS) $(TEST_RUNTIME_MODS))))
-
-.PHONY: deps
-deps: $(DEPS)
-	@echo Made dependencies.
-
 obj/%.d: src/%.c
 	@set -e; rm -f $@; \
 	$(CC) -MM $(CFLAGS) $< > $@.$$$$; \
@@ -56,34 +49,37 @@ obj/%.d: src/*/%.c
 	sed 's,\($*\)\.o[ :]*,\1.o $@ : ,g' < $@.$$$$ > $@; \
 	rm -f $@.$$$$
 
+obj/runtime.d obj/json_parser.d: src/runtime.c src/blockhash/opstable.c src/blockhash/typestable.c
+
+DEPS=$(addprefix obj/, $(addsuffix .d, \
+	$(sort $(PLAYER_MODS) $(JSON_PARSER_MODS) $(PHTG_MODS) $(TEST_RUNTIME_MODS))))
 -include $(DEPS)
 
-obj/%.o: */%.c
+obj/%.o: src/%.c obj/%.d
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-obj/%.o: */*/%.c
+obj/%.o: src/*/%.c obj/%.d
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 ### building the blockhash tables
 
-BLOCKHASH_GENERATED_FILES=blockops.mphf blockhash/opstable.c blockhash/typestable.c blockhash/map.txt
+BLOCKHASH_GENERATED_FILES=blockops.mphf $(addprefix src/blockhash/, opstable.c typestable.c)
 
-.PHONY: blockhash
-blockhash: clean_blockshash phtg
-	./phtg
+.PHONY: blockhash clean_blockhash
+blockhash: $(BLOCKHASH_GENERATED_FILES)
 
-$(BLOCKHASH_GENERATED_FILES): phtg
+src/%hash/opstable.c src/%hash/typestable.c %ops.mphf: phtg
 	./phtg
 
 clean_blockhash:
-	rm -rf $(BLOCKHASH_GENERATED_FILES)
+	rm -f $(BLOCKHASH_GENERATED_FILES) map.txt
 
 ### cleaning
 
 .PHONY: clean spotless
 
 clean:
-	rm -f obj/*
+	rm -f obj/*.o
 
 spotless: clean clean_blockhash
-	rm -f $(EXECUTABLES)
+	rm -f $(EXECUTABLES) obj/*.d

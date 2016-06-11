@@ -50,7 +50,7 @@ int main(void) {
 
 	// make table of values for ops hash table, and write key hash mappings to file
 	hash hash;
-	FILE *mapStream = fopen("src/blockhash/map.txt", "w"); // file for writing key and hash pairs to
+	FILE *mapStream = fopen("map.txt", "w"); // file for writing key and hash pairs to
 	if(mapStream == NULL) {
 		puts("Could not open map.txt!");
 		return 1;
