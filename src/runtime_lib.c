@@ -16,11 +16,11 @@
 		showing/hiding monitors when graphics are implemented
 */
 
-static Block* bf_noop(const Block *const block, Value *const reportSlot, const Value arg[]) {return block->p.next;}
+static Block* bf_noop(const Block *const block, Value *const reportSlot, const Value arg[]) {puts("NOOP CALLED!"); return block->p.next;}
 
 static Block* bf_add(const Block *const block, Value *const reportSlot, const Value arg[]) {
-	double arg0 = toFloating(arg[0]);
-	double arg1 = toFloating(arg[1]);
+	double arg0 = toFloating(arg+0);
+	double arg1 = toFloating(arg+1);
 
 	reportSlot->type = FLOATING;
 	reportSlot->data.floating = arg0 + arg1;
@@ -28,8 +28,8 @@ static Block* bf_add(const Block *const block, Value *const reportSlot, const Va
 }
 
 static Block* bf_subtract(const Block *const block, Value *const reportSlot, const Value arg[]) {
-	double arg0 = toFloating(arg[0]);
-	double arg1 = toFloating(arg[1]);
+	double arg0 = toFloating(arg+0);
+	double arg1 = toFloating(arg+1);
 
 	reportSlot->type = FLOATING;
 	reportSlot->data.floating = arg0 - arg1;
@@ -37,8 +37,8 @@ static Block* bf_subtract(const Block *const block, Value *const reportSlot, con
 }
 
 static Block* bf_multiply(const Block *const block, Value *const reportSlot, const Value arg[]) {
-	double arg0 = toFloating(arg[0]);
-	double arg1 = toFloating(arg[1]);
+	double arg0 = toFloating(arg+0);
+	double arg1 = toFloating(arg+1);
 
 	reportSlot->type = FLOATING;
 	reportSlot->data.floating = arg0 * arg1;
@@ -46,8 +46,8 @@ static Block* bf_multiply(const Block *const block, Value *const reportSlot, con
 }
 
 static Block* bf_divide(const Block *const block, Value *const reportSlot, const Value arg[]) {
-	double arg0 = toFloating(arg[0]);
-	double arg1 = toFloating(arg[1]);
+	double arg0 = toFloating(arg+0);
+	double arg1 = toFloating(arg+1);
 
 	reportSlot->type = FLOATING;
 	reportSlot->data.floating = arg0 / arg1;
@@ -55,8 +55,8 @@ static Block* bf_divide(const Block *const block, Value *const reportSlot, const
 }
 
 static Block* bf_modulo(const Block *const block, Value *const reportSlot, const Value arg[]) {
-	double arg0 = toFloating(arg[0]);
-	double arg1 = toFloating(arg[1]);
+	double arg0 = toFloating(arg+0);
+	double arg1 = toFloating(arg+1);
 
 	double r = fmod(arg0, arg1);
 	if ((r<0 || arg1<0) && !(arg0<0 && arg1<0)) r+=arg1; // calculate modulo
@@ -67,15 +67,15 @@ static Block* bf_modulo(const Block *const block, Value *const reportSlot, const
 }
 
 static Block* bf_round(const Block *const block, Value *const reportSlot, const Value arg[]) {
-	double r = round(toFloating(arg[0]));
+	double r = round(toFloating(arg+0));
 	reportSlot->type = FLOATING;
 	reportSlot->data.floating = r;
 	return NULL;
 }
 
 static Block* bf_is_less(const Block *const block, Value *const reportSlot, const Value arg[]) {
-	double arg0 = toFloating(arg[0]);
-	double arg1 = toFloating(arg[1]);
+	double arg0 = toFloating(arg+0);
+	double arg1 = toFloating(arg+1);
 	reportSlot->data.boolean = arg0 < arg1;
 
 	reportSlot->type = BOOLEAN;
@@ -83,16 +83,15 @@ static Block* bf_is_less(const Block *const block, Value *const reportSlot, cons
 }
 
 static Block* bf_is_equal(const Block *const block, Value *const reportSlot, const Value arg[]) {
-	puts("bf_is_equal");
 	double arg0, arg1;
-	if(tryToFloating(arg[0], &arg0)) {
-		if(tryToFloating(arg[1], &arg1))
+	if(tryToFloating(arg+0, &arg0)) {
+		if(tryToFloating(arg+1, &arg1))
 			reportSlot->data.boolean = (arg0 == arg1);
 		else
 			reportSlot->data.boolean = false;
 	}
 	else {
-		if(tryToFloating(arg[1], &arg1))
+		if(tryToFloating(arg+1, &arg1))
 			reportSlot->data.boolean = false;
 		else if(strcmp(arg[0].data.string, arg[1].data.string) == 0)
 			reportSlot->data.boolean = true;
@@ -104,8 +103,8 @@ static Block* bf_is_equal(const Block *const block, Value *const reportSlot, con
 }
 
 static Block* bf_is_greater(const Block *const block, Value *const reportSlot, const Value arg[]) {
-	double arg0 = toFloating(arg[0]);
-	double arg1 = toFloating(arg[1]);
+	double arg0 = toFloating(arg+0);
+	double arg1 = toFloating(arg+1);
 	reportSlot->data.boolean = arg0 > arg1;
 
 	reportSlot->type = BOOLEAN;
@@ -114,25 +113,25 @@ static Block* bf_is_greater(const Block *const block, Value *const reportSlot, c
 
 static Block* bf_logical_and(const Block *const block, Value *const reportSlot, const Value arg[]) {
 	reportSlot->type = BOOLEAN;
-	reportSlot->data.boolean = toBoolean(arg[0]) && toBoolean(arg[1]);
+	reportSlot->data.boolean = toBoolean(arg+0) && toBoolean(arg+1);
 	return NULL;
 }
 
 static Block* bf_logical_or(const Block *const block, Value *const reportSlot, const Value arg[]) {
 	reportSlot->type = BOOLEAN;
-	reportSlot->data.boolean = toBoolean(arg[0]) || toBoolean(arg[1]);
+	reportSlot->data.boolean = toBoolean(arg+0) || toBoolean(arg+1);
 	return NULL;
 }
 
 static Block* bf_logical_not(const Block *const block, Value *const reportSlot, const Value arg[]) {
 	reportSlot->type = BOOLEAN;
-	reportSlot->data.boolean = !toBoolean(arg[0]);
+	reportSlot->data.boolean = !toBoolean(arg+0);
 	return NULL;
 }
 
 // bad, but functional, random number generation
 static Block* bf_generate_random(const Block *const block, Value *const reportSlot, const Value arg[]) {
-	double low = toFloating(arg[0]), high = toFloating(arg[1]);
+	double low = toFloating(arg+0), high = toFloating(arg+1);
 	if(low > high) { // if the bounds are out of order
 		double tmp = low;
 		low = high;
@@ -152,109 +151,104 @@ static Block* bf_generate_random(const Block *const block, Value *const reportSl
 
 static Block* bf_compute_math_function(const Block *const block, Value *const reportSlot, const Value arg[]) {
 	char *function;
-	toString(arg[0], &function);
+	toString(arg+0, &function);
 
 	switch(function[1]) { // switch with the second letter
 	case 'b': // abs
-		reportSlot->data.floating = fabs(toFloating(arg[1]));
+		reportSlot->data.floating = fabs(toFloating(arg+1));
 		reportSlot->type = FLOATING;
 		break;
 	case 'l': // floor
-		reportSlot->data.floating = floor(toFloating(arg[1]));
+		reportSlot->data.floating = floor(toFloating(arg+1));
 		reportSlot->type = FLOATING;
 		break;
 	case 'e': // ceiling
-		reportSlot->data.floating = ceil(toFloating(arg[1]));
+		reportSlot->data.floating = ceil(toFloating(arg+1));
 		reportSlot->type = FLOATING;
 		break;
 	case 'q': // sqrt
-		reportSlot->data.floating = sqrt(toFloating(arg[1])); // there is no sqrt() with an integer parameter
+		reportSlot->data.floating = sqrt(toFloating(arg+1));
 		reportSlot->type = FLOATING;
 		break;
 	case 'i': // sin
-		reportSlot->data.floating = sin(toFloating(arg[1]) * (M_PI/180));
+		reportSlot->data.floating = sin(toFloating(arg+1) * (M_PI/180));
 		reportSlot->type = FLOATING;
 		break;
 	case 'o': // cos or log
 		if(function[0] == 'c') {
-			reportSlot->data.floating = sin(toFloating(arg[1]) * (M_PI/180));
+			reportSlot->data.floating = sin(toFloating(arg+1) * (M_PI/180));
 			reportSlot->type = FLOATING;
 			break;
 		}
 		else if(function[0] == 'l') {
-			reportSlot->data.floating = log10(toFloating(arg[1]));
+			reportSlot->data.floating = log10(toFloating(arg+1));
 			reportSlot->type = FLOATING;
 			break;
 		}
 		else
 			break;
 	case 'a': // tan
-		reportSlot->data.floating = tan(toFloating(arg[1]) * (M_PI/180));
+		reportSlot->data.floating = tan(toFloating(arg+1) * (M_PI/180));
 		reportSlot->type = FLOATING;
 		break;
 	case 's': // asin
-		reportSlot->data.floating = asin(toFloating(arg[1]) * (M_PI/180));
+		reportSlot->data.floating = asin(toFloating(arg+1) * (M_PI/180));
 		reportSlot->type = FLOATING;
 		break;
 	case 'c': // acos
-		reportSlot->data.floating = acos(toFloating(arg[1]) * (M_PI/180));
+		reportSlot->data.floating = acos(toFloating(arg+1) * (M_PI/180));
 		reportSlot->type = FLOATING;
 		break;
 	case 't': // atan
-		reportSlot->data.floating = atan(toFloating(arg[1]) * (M_PI/180));
+		reportSlot->data.floating = atan(toFloating(arg+1) * (M_PI/180));
 		reportSlot->type = FLOATING;
 		break;
 	case 'n': // ln
-		reportSlot->data.floating = log(toFloating(arg[1])); // this is log base e
+		reportSlot->data.floating = log(toFloating(arg+1)); // this is log base e
 		reportSlot->type = FLOATING;
 		break;
 	case ' ': // e ^
-		reportSlot->data.floating = pow(M_E, toFloating(arg[1]));
+		reportSlot->data.floating = pow(M_E, toFloating(arg+1));
 		reportSlot->type = FLOATING;
 		break;
 	case '0': // 10 ^
-		reportSlot->data.floating = pow(10, toFloating(arg[1]));
+		reportSlot->data.floating = pow(10, toFloating(arg+1));
 		reportSlot->type = FLOATING;
 		break;
 	}
 
-	//free(function);
 	return NULL;
 }
 
 static Block* bf_concatenate(const Block *const block, Value *const reportSlot, const Value arg[]) {
-	puts("bf_concatenate");
 	char *arg0, *arg1, *r;
-	toString(arg[0], &arg0);
-	toString(arg[1], &arg1);
-	r = allocString(strlen(arg0) + strlen(arg1) + 1);
+	toString(arg+0, &arg0);
+	toString(arg+1, &arg1);
+	r = strpool_alloc(strlen(arg0) + strlen(arg1) + 1);
 	strcpy(r, arg0);
 	strcat(r, arg1);
 
 	reportSlot->type = STRING;
 	reportSlot->data.string = r;
-	//free(arg0);
-	//free(arg1);
 	return NULL;
 }
 
 static Block* bf_get_string_length(const Block *const block, Value *const reportSlot, const Value arg[]) {
 	char *s;
-	toString(arg[0], &s);
+	toString(arg+0, &s);
 	int64 l = strlen(s);
 
 	reportSlot->type = FLOATING;
 	reportSlot->data.floating = (double)l;
-	//free(s);
 	return NULL;
 }
 
 static Block* bf_get_character(const Block *const block, Value *const reportSlot, const Value arg[]) {
-	int64 index = toInteger(arg[0]) - 1; // subtract one because Scratch indices start at one, not zero
+	int64 index = toInteger(arg+0) - 1; // subtract one because Scratch indices start at one, not zero
 	char *s;
-	toString(arg[1], &s);
+	toString(arg+1, &s);
 
-	char *r = allocString(2);
+	char *r = strpool_alloc(2);
 	r[0] = s[index];
 	r[1] = '\0';
 	reportSlot->type = STRING;
@@ -264,10 +258,9 @@ static Block* bf_get_character(const Block *const block, Value *const reportSlot
 
 // Control
 static Block* bf_do_if(const Block *const block, Value *const reportSlot, const Value arg[]) {
-	puts("bf_do_if");
-	if(toBoolean(arg[0])) {
+	if(toBoolean(arg+0)) {
 		// go inside C of if block
-		pushStackFrame(block->p.subStacks+1);
+		pushStackFrame(block->p.subStacks[1]);
 		return block->p.subStacks[0]; // advance thread to stub block inside of if block
 	}
 	else {
@@ -277,32 +270,39 @@ static Block* bf_do_if(const Block *const block, Value *const reportSlot, const 
 }
 
 static Block* bf_do_if_else(const Block *const block, Value *const reportSlot, const Value arg[]) {
-	if(toBoolean(arg[0]))
+	pushStackFrame(block->p.subStacks[2]);
+	if(toBoolean(arg+0))
 		return block->p.subStacks[0];
 	else
 		return block->p.subStacks[1];
 }
 
 static Block* bf_do_until(const Block *const block, Value *const reportSlot, const Value arg[]) {
-	if(toBoolean(arg[0]))
+	if(toBoolean(arg+0)) {
+		// exit/skip loop
 		return block->p.subStacks[1];
-	else
+	}
+	else {
+		// enter loop
+		pushStackFrame(activeContext->nextBlock); // return to this block after substack inside loop is finished
 		return block->p.subStacks[0];
+	}
 }
 
 static Block* bf_do_wait_until(const Block *const block, Value *const reportSlot, const Value arg[]) {
-	if(toBoolean(arg[0]))
-		return block->p.subStacks[1];
+	if(toBoolean(arg+0))
+		return (void*)block;
 	else
-		return block->p.subStacks[0];
+		return block->p.next;
 }
 
 static Block* bf_do_repeat(const Block *const block, Value *const reportSlot, const Value arg[]) {
 	if(allocCounter(block))
-		usetCounter((uint16)toInteger(arg[0]));
+		usetCounter((uint16)toInteger(arg+0));
 
-	if(ugetCounter() > 0) {
+	if(ugetCounter() != 0) {
 		usetCounter(ugetCounter()-1);
+		pushStackFrame(activeContext->nextBlock);
 		return block->p.subStacks[0];
 	}
 	else {
@@ -312,17 +312,22 @@ static Block* bf_do_repeat(const Block *const block, Value *const reportSlot, co
 }
 
 static Block* bf_do_wait(const Block *const block, Value *const reportSlot, const Value arg[]) {
-	if(allocCounter(block))
-		fsetCounter((float)toFloating(arg[0]) * CLOCKS_PER_SEC);
-
-	if(fgetCounter() > 0) {
+	if(allocCounter(block)) {
+		fsetCounter((float)toFloating(arg+0) * CLOCKS_PER_SEC);
+	}
+	else if (fgetCounter() > 0) {
 		fsetCounter(fgetCounter()-dtime);
-		return block->p.subStacks[0];
 	}
 	else {
 		freeCounter();
-		return block->p.subStacks[1];
+		return block->p.next;
 	}
+	return (void*)block;
+}
+
+static Block* bf_do_forever(const Block*const block, Value *const reportSlot, const Value arg[]) {
+	pushStackFrame(block);
+	return block->p.subStacks[0];
 }
 
 static Block* bf_stop_scripts(const Block *const block, Value *const reportSlot, const Value arg[]) {
@@ -330,42 +335,80 @@ static Block* bf_stop_scripts(const Block *const block, Value *const reportSlot,
 }
 
 static Block* bf_get_variable(const Block *const block, Value *const reportSlot, const Value arg[]) {
-	puts("bf_get_variable");
+
 	char *name;
-	toString(arg[0], &name);
+	toString(arg+0, &name);
 	*reportSlot = getVariable(&activeContext->spriteCtx->variables, name);
-	return block->p.next;
+	return NULL;
 }
 
 static Block* bf_variable_set(const Block *const block, Value *const reportSlot, const Value arg[]) {
 	char *name;
-	toString(arg[0], &name);
-	setVariable(&activeContext->spriteCtx->variables, name, copySimplifiedValue(arg[1]));
+	toString(arg+0, &name);
+	setVariable(&activeContext->spriteCtx->variables, name, arg+1);
 	return block->p.next;
 }
 
 static Block* bf_variable_change(const Block *const block, Value *const reportSlot, const Value arg[]) {
-	puts("bf_variable_change");
 	char *name;
-	toString(arg[0], &name);
+	toString(arg+0, &name);
 
 	Value value = getVariable(&activeContext->spriteCtx->variables, name);
-	double incr = toFloating(arg[1]);
-	value.data.floating = toFloating(value);
+	double incr = toFloating(arg+1);
+	value.data.floating = toFloating(&value);
 	value.data.floating += incr;
 	value.type = FLOATING;
-	setVariable(&activeContext->spriteCtx->variables, name, value);
+	setVariable(&activeContext->spriteCtx->variables, name, &value);
 
 	return block->p.next;
 }
 
-static Block* bf_get_list_contents(const Block *const block, Value *const reportSlot, const Value arg[]) {
+static Block* bf_list_append(const Block *const block, Value *const reportSlot, const Value arg[]) {
+	char *name;
+	toString(arg+1, &name);
+	listAppend(getListPtr(&activeContext->spriteCtx->lists, name), arg+0);
 	return block->p.next;
+}
+
+// TODO: add deleting indices
+static Block* bf_list_delete(const Block *const block, Value *const reportSlot, const Value arg[]) {
+	char *name;
+	toString(arg+1, &name);
+	listDeleteAll(getListPtr(&activeContext->spriteCtx->lists, name));
+	return block->p.next;
+}
+
+static Block* bf_list_contains(const Block *const block, Value *const reportSlot, const Value arg[]) {
+	char *name;
+	toString(arg+0, &name);
+	List *list = getListPtr(&activeContext->spriteCtx->lists, name);
+	Value value = extractSimplifiedValue(arg+1);
+	switch(value.type) {
+	case FLOATING:
+		reportSlot->data.boolean = listContainsFloating(list, value.data.floating);
+		break;
+	case BOOLEAN:
+		reportSlot->data.boolean = listContainsBoolean(list, value.data.boolean);
+		break;
+	case STRING:
+		reportSlot->data.boolean = listContainsString(list, value.data.string);
+		break;
+	}
+	reportSlot->type = BOOLEAN;
+	return NULL;
+}
+
+static Block *bf_list_length(const Block *const block, Value *const reportSlot, const Value arg[]) {
+	char *name;
+	toString(arg+0, &name);
+	reportSlot->type = FLOATING;
+	reportSlot->data.floating = (double)getListPtr(&activeContext->spriteCtx->lists, name)->length;
+	return NULL;
 }
 
 static Block* bf_say(const Block*block, Value *const reportSlot, const Value arg[]) {
 	char *msg;
-	toString(arg[0], &msg);
+	toString(arg+0, &msg);
 	printf("bf_say: ");
 	puts(msg);
 	return block->p.next;

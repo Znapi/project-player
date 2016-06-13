@@ -8,18 +8,8 @@
 
 #include "value.h"
 
-// Return a new Value from the given value, and make a copy of a string if any.
-Value copyValue(const Value value) {
-	if(value.type == STRING) {
-		Value copy = value;
-		copy.data.string = extractString(value.data.string);
-		return copy;
-	}
-	else
-		return value;
-}
-
-// 'unsuccecssful' for tryTo functions means that data was lost from a string representation
+/**** Attempted string to primitive conversions (private)
+			returning 'unsuccecssful' (false) means that data was lost from a string representation ****/
 
 /* Tries to convert the given string to a boolean. Returns true if successful and stores the resulting boolean in ret, false otherwise. */
 static bool strTryToBoolean(const char *str, bool *ret) {
@@ -86,21 +76,24 @@ static union {
 	double f;
 } t;
 
+/**** Attempted type conversions (public)
+			returning 'unsuccecssful' (false) means that data was lost from a string representation ****/
+
 /* Tries to convert the given Value to a double. Returns true if successful and stores the resulting double in ret, false otherwise. */
-bool tryToFloating(const Value value, double *ret) {
-	switch(value.type) {
+bool tryToFloating(const Value *const value, double *ret) {
+	switch(value->type) {
 	case FLOATING:
-		*ret = value.data.floating;
+		*ret = value->data.floating;
 		return true;
 	case BOOLEAN:
-		*ret = (double)value.data.boolean;
+		*ret = (double)value->data.boolean;
 		return true;
 	case STRING:
-		if(strTryToFloating(value.data.string, &t.f)) {
+		if(strTryToFloating(value->data.string, &t.f)) {
 			*ret = t.f;
 			return true;
 		}
-		else if(strTryToBoolean(value.data.string, &t.b)) {
+		else if(strTryToBoolean(value->data.string, &t.b)) {
 			*ret = (double)t.b;
 			return true;
 		}
@@ -109,93 +102,97 @@ bool tryToFloating(const Value value, double *ret) {
 	}
 }
 
-/* takes a Value, and will return a 64 bit integer representation */
-int64 toInteger(const Value value) {
-	switch(value.type) {
+/**** Forced type conversions (public)
+			These functions will not error and will do conversions no matter how much data is lost. ****/
 
+/* Takes a Value and returns a 64 bit integer representation. */
+int64 toInteger(const Value *const value) {
+	switch(value->type) {
 	case FLOATING:
-		/*if(value.data.floating == NAN) return 0;
-			else*/ return (int64)value.data.floating;
+		/*if(value->data.floating == NAN) return 0;
+			else*/ return (int64)value->data.floating;
 
 	case STRING:
-		if(strTryToBoolean(value.data.string, &t.b))
+		if(strTryToBoolean(value->data.string, &t.b))
 			return t.b;
 		else
-			return (int64)strtoll(value.data.string, NULL, 0);
+			return (int64)strtoll(value->data.string, NULL, 0);
 
 	case BOOLEAN:
-		return value.data.boolean;
+		return value->data.boolean;
 	}
 }
 
-double toFloating(const Value value) {
-	switch(value.type) {
+double toFloating(const Value *const value) {
+	switch(value->type) {
 
 	case FLOATING:
-		/*if(value.data.floating == NAN)
+		/*if(value->data.floating == NAN)
 			return 0;
 			else*/
-			return value.data.floating;
+			return value->data.floating;
 
 	case STRING:
-		if(strTryToBoolean(value.data.string, &t.b))
+		if(strTryToBoolean(value->data.string, &t.b))
 			return t.b;
 		else
-			return strtod(value.data.string, NULL);
+			return strtod(value->data.string, NULL);
 
 	case BOOLEAN:
-		return (double)value.data.boolean;
+		return (double)value->data.boolean;
 	}
 }
 
-/* takes a Value, creates a string with allocString(will be auto freed), and return the length of the string */
-uint32 toString(const Value value, char **string) {
+/* takes a Value, creates a string with strpool_alloc(will be auto freed), and return the length of the string */
+uint32 toString(const Value *const value, char **string) {
 	uint32 size;
-	char buf[64];
-	switch(value.type) {
+	static char buf[64];
+	switch(value->type) {
 
 	case FLOATING:
-		sprintf(buf, "%f", value.data.floating);
+		sprintf(buf, "%f", value->data.floating);
 		size = strlen(buf)+1;
-		*string = allocString(size);
+		*string = strpool_alloc(size);
 		memcpy(*string, buf, size);
 		return size-1;
 
 	case STRING:
-		size = strlen(value.data.string)+1;
-		*string = allocString(size);
-		memcpy(*string, value.data.string, size);
+		size = strlen(value->data.string)+1;
+		*string = strpool_alloc(size);
+		memcpy(*string, value->data.string, size);
 		return size-1;
 
 	case BOOLEAN:
-		if(value.data.boolean) {
-			*string = allocString(5);
+		if(value->data.boolean) {
+			*string = strpool_alloc(5);
 			memcpy(*string, "true", 5*sizeof(char));
 			return 4;
 		}
 		else {
-			*string = allocString(6);
+			*string = strpool_alloc(6);
 			memcpy(*string, "false", 6*sizeof(char));
 			return 5;
 		}
 	}
 }
 
-bool toBoolean(const Value value) {
-	switch(value.type) {
+bool toBoolean(const Value *const value) {
+	switch(value->type) {
 	case FLOATING:
-		return value.data.floating == 1.0;
+		return value->data.floating == 1.0;
 
 	case STRING:
-		if(strTryToBoolean(value.data.string, &t.b))
+		if(strTryToBoolean(value->data.string, &t.b))
 			return t.b;
 		else
-			return strtoll(value.data.string, NULL, 0) == 1;
+			return strtoll(value->data.string, NULL, 0) == 1;
 
 	case BOOLEAN:
-		return value.data.boolean;
+		return value->data.boolean;
 	}
 }
+
+/***** Parsing (public) *****/
 
 Value strnToValue(const char *const string, const ubyte length) {
 	Value copy;
@@ -216,43 +213,39 @@ Value strnToValue(const char *const string, const ubyte length) {
 	return copy;
 }
 
-/*Value jsonPrimToValue(const char *const string, const ubyte length) {
-	Value v;
-	switch(string[0]) {
-	case 't':
-		v.type = BOOLEAN;
-		v.data.boolean = true;
-		break;
-	case 'f':
-		v.type = BOOLEAN;
-		v.data.boolean = false;
-		break;
-	case 'n':
-		v.type = FLOATING;
-		v.data.floating = 0.0;
-		break;
-	default:
-		strnTryToFloating(...
-	}
-	}*/
+/**** Copying ****/
 
-Value copySimplifiedValue(const Value value) {
-	if(value.type == STRING) {
+/* Return a new Value from the given value, and make a copy of a string inside
+	 persistent memory (not in the pool) if any. */
+Value extractValue(const Value *const value) {
+	if(value->type == STRING) {
+		Value copy = *value;
+		copy.data.string = extractString(value->data.string);
+		return copy;
+	}
+	else
+		return *value;
+}
+
+/* Returns a new Value form the given Value, and simplifies a string, if any,
+	 if possible, to a primitive. */
+Value extractSimplifiedValue(const Value *const value) {
+	if(value->type == STRING) {
 		Value copy;
-		if(strTryToFloating(value.data.string, &t.f)) {
+		if(strTryToFloating(value->data.string, &t.f)) {
 			copy.type = FLOATING;
 			copy.data.floating = t.f;
 		}
-		else if(strTryToBoolean(value.data.string, &t.b)) {
+		else if(strTryToBoolean(value->data.string, &t.b)) {
 			copy.type = BOOLEAN;
 			copy.data.boolean = t.b;
 		}
 		else {
 			copy.type = STRING;
-			copy.data.string = extractString(value.data.string);
+			copy.data.string = extractString(value->data.string);
 		}
 		return copy;
 	}
 	else
-		return value;
+		return *value;
 }

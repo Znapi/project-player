@@ -212,10 +212,12 @@ static void parseLists(struct parsingData_t *const pd) {
 				++pd->i; // advance to value
 		} while(--propertiesToGo != 0);
 		List* list = createList(&pd->currentContext->lists, name, NULL, 0);
+		Value value = strnToValue(gjson(*valueToken), toklen(*valueToken));
 		for(propertiesToGo = valueToken->size; propertiesToGo != 0; --propertiesToGo) {
 			++valueToken;
-			listAppend(list, strnToValue(gjson(*valueToken), toklen(*valueToken)));
+			listAppend(list, &value);
 		}
+		if(value.type == STRING) free(value.data.string);
 	} while(--elementsToGo != 0);
 	++pd->i; // advance from last property
 }
@@ -290,7 +292,7 @@ static bool parseStack(struct parsingData_t *const pd, uint16 stackBlocksToGo, c
 
 		default: // no substacks
 			parseBlockArgs(pd, tokens[pd->i - 1].size, 1); // parse all arguments
-			
+
 			indexForLastBlock = dynarray_len(pd->indicesBuffer); // remember index for this stack block
 			i = 0;
 			dynarray_push_back(pd->indicesBuffer, &i); // link this stack block to 0 (NULL). it will be linked to the next stack block if there is one
@@ -299,34 +301,60 @@ static bool parseStack(struct parsingData_t *const pd, uint16 stackBlocksToGo, c
 			break;
 
 		case BLOCK_TYPE_C: // 2 substacks: inner and following
-			if(tmpBlock.hash == pd->doIf_hash) { // it is an if block
-				parseBlockArgs(pd, tokens[pd->i - 1].size - 1, 1); // parse arguments, but leave the last one (the substack)
+			parseBlockArgs(pd, tokens[pd->i - 1].size - 1, 1); // parse arguments, but leave the last one (the substack)
 
-				i = 1;
-				dynarray_push_back(pd->indicesBuffer, &i); // store amount of substacks here
-				indexForLastBlock = dynarray_len(pd->indicesBuffer);
-				i = 0;
-				dynarray_push_back(pd->indicesBuffer, &i); // set pointer to the inner stack to 0 (NULL)
-				dynarray_push_back(pd->indicesBuffer, &i); // set pointer to following stack to 0 (NULL)
+			i = 2;
+			dynarray_push_back(pd->indicesBuffer, &i); // store amount of substacks here
+			indexForLastBlock = dynarray_len(pd->indicesBuffer);
+			i = 0;
+			dynarray_push_back(pd->indicesBuffer, &i); // set pointer to the inner stack to 0 (NULL)
+			dynarray_push_back(pd->indicesBuffer, &i); // set pointer to following stack to 0 (NULL)
 
-				tmpBlock.p.subStacks = malloc(sizeof(Block*)*2); // reserve room for the substacks
-				dynarray_push_back(pd->blockBuffer, &tmpBlock); // append block from temporary buffer to persistent block array
+			tmpBlock.p.subStacks = malloc(sizeof(Block*)*2); // reserve room for the substacks
+			dynarray_push_back(pd->blockBuffer, &tmpBlock); // append block from temporary buffer to persistent block array
 
-				++pd->i; // advance to array of stack blocks, or 'null' if the slot is empty
-				parseStack(pd, TOKC.size, indexForLastBlock); // parse stack inside C
-				++indexForLastBlock;
-			}
-			else { // it is a looping block
-
-			}
+			++pd->i; // advance to array of stack blocks, or 'null' if the slot is empty
+			parseStack(pd, TOKC.size, indexForLastBlock); // parse stack inside C
+			++indexForLastBlock;
 			break;
 
-		case BLOCK_TYPE_CF: // special(?) case: one inner and no following
+		case BLOCK_TYPE_CF: // 1 substack: one inner and no following
+			// no CF blocks have arguments currently
+			//parseBlockArgs(pd, tokens[pd->i - 1].size - 1, 1); // parse arguments, but leave the last one (the substack)
+
 			i = 1;
+			dynarray_push_back(pd->indicesBuffer, &i); // store amount of substacks here
+			indexForLastBlock = dynarray_len(pd->indicesBuffer);
+			i = 0;
+			dynarray_push_back(pd->indicesBuffer, &i); // set pointer to the inner stack to 0 (NULL)
+
+			tmpBlock.p.subStacks = malloc(sizeof(Block*)); // reserve room for the substacks
+			dynarray_push_back(pd->blockBuffer, &tmpBlock); // append block from temporary buffer to persistent block array
+
+			++pd->i; // advance to array of stack blocks, or 'null' if the slot is empty
+			parseStack(pd, TOKC.size, indexForLastBlock); // parse stack inside C
 			break;
 
 		case BLOCK_TYPE_E: // 3 substacks: 2 inner and 1 following
-			i = 2;
+			parseBlockArgs(pd, tokens[pd->i - 1].size - 2, 1); // parse arguments, but leave the last two (the substacks)
+
+			i = 3;
+			dynarray_push_back(pd->indicesBuffer, &i); // store amount of substacks here
+			indexForLastBlock = dynarray_len(pd->indicesBuffer);
+			i = 0;
+			dynarray_push_back(pd->indicesBuffer, &i); // set pointer to the first inner stack to 0 (NULL)
+			dynarray_push_back(pd->indicesBuffer, &i); // set pointer to the second inner stack to 0 (NULL)
+			dynarray_push_back(pd->indicesBuffer, &i); // set pointer to following stack to 0 (NULL)
+
+			tmpBlock.p.subStacks = malloc(sizeof(Block*)*3); // reserve room for the substacks
+			dynarray_push_back(pd->blockBuffer, &tmpBlock); // append block from temporary buffer to persistent block array
+
+			++pd->i; // advance to first array of stack blocks, or 'null' if the slot is empty
+			parseStack(pd, TOKC.size, indexForLastBlock); // parse first stack inside E
+			++indexForLastBlock;
+			++pd->i; // advance to second array of stack blocks, or 'null' if the slot is empty
+			parseStack(pd, TOKC.size, indexForLastBlock); // parse second stack inside E
+			++indexForLastBlock;
 			break;
 
 		}
@@ -387,11 +415,6 @@ static void parseScripts(struct parsingData_t *const pd) {
 								else
 									block->p.subStacks[j] = (Block*)tmpThreadContext.nextBlock + *index;
 							}
-							index = (unsigned int*)dynarray_next(pd->indicesBuffer, index);
-							if(*index == 0)
-								block->p.subStacks[j] = NULL;
-							else
-								block->p.subStacks[j] = (Block*)tmpThreadContext.nextBlock + *index;
 						}
 					}
 					++block;
@@ -442,7 +465,7 @@ int main(void) {
 		NULL,
 	};
 
-	pd.jsonSize = loadFile("project_test.json", &pd.json);
+	pd.jsonSize = loadFile("project_primes.json", &pd.json);
 	if(pd.jsonSize == 0)
 		return 1;
 

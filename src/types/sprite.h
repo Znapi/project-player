@@ -23,6 +23,7 @@ struct List {
 	UT_hash_handle hh;
 };
 typedef struct List List;
+// TODO: switch to dynarrays
 
 struct SpriteContext {
 	struct Variable *variables; // a hash table of Scratch variables

@@ -145,10 +145,10 @@ const struct BlockSpec specs[] = {
 	{"wait:elapsed:from:", "bf_do_wait", s},
 
 	{"doRepeat", "bf_do_repeat", c},
-	{"doForever", "bf_noop", cf},
+	{"doForever", "bf_do_forever", cf},
 	{"doIf", "bf_do_if", c},
 	{"doIfElse", "bf_do_if_else", e},
-	{"doWaitUntil", "bf_noop", s},
+	{"doWaitUntil", "bf_do_wait_until", s},
 	{"doUntil", "bf_do_until", c},
 
 	{"stopScripts", "bf_stop_scripts", f}, // the type of this block depends on it's arguments
@@ -222,13 +222,13 @@ const struct BlockSpec specs[] = {
 	// Lists
 	{"contentsOfList:", "bf_noop", r},
 
-	{"append:toList:", "bf_noop", s},
-	{"deleteLine:ofList:", "bf_noop", s},
+	{"append:toList:", "bf_list_append", s},
+	{"deleteLine:ofList:", "bf_list_delete", s},
 	{"setLine:ofList:to:", "bf_noop", s},
 
 	{"getLine:ofList:", "bf_noop", r},
-	{"lineCount:ofList:", "bf_noop", r},
-	{"list:contains:", "bf_noop", b},
+	{"lineCountOfList:", "bf_list_length", r},
+	{"list:contains:", "bf_list_contains", b},
 
 	{"showList:", "bf_noop", s},
 	{"hideList:", "bf_noop", s},

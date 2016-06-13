@@ -1,0 +1,283 @@
+{
+	"objName": "Stage",
+	"variables": [{
+			"name": "a",
+			"value": "100000000000000000000000000000000000000000000000000000000",
+			"isPersistent": false
+		},
+		{
+			"name": "b",
+			"value": 8420,
+			"isPersistent": false
+		},
+		{
+			"name": "c",
+			"value": 92,
+			"isPersistent": false
+		},
+		{
+			"name": "d",
+			"value": 91.7551088495894,
+			"isPersistent": false
+		},
+		{
+			"name": "f",
+			"value": "2",
+			"isPersistent": false
+		},
+		{
+			"name": "g",
+			"value": "2",
+			"isPersistent": false
+		},
+		{
+			"name": "h",
+			"value": "100000000000000000000000000000000000000000000000000000000",
+			"isPersistent": false
+		},
+		{
+			"name": "i",
+			"value": 1052,
+			"isPersistent": false
+		},
+		{
+			"name": "j",
+			"value": "2",
+			"isPersistent": false
+		}],
+	"lists": [{
+			"listName": "prime numbers",
+			"contents": [2],
+			"isPersistent": false,
+			"x": 3,
+			"y": 30,
+			"width": 479,
+			"height": 280,
+			"visible": true
+		},
+		{
+			"listName": "e",
+			"contents": [4],
+			"isPersistent": false,
+			"x": 127,
+			"y": 71,
+			"width": 138,
+			"height": 248,
+			"visible": false
+		}],
+	"scripts": [[50,
+			78,
+			[["whenGreenFlag"],
+				["deleteLine:ofList:", "all", "prime numbers"],
+				["deleteLine:ofList:", "all", "e"],
+				["setVar:to:", "f", "2"],
+				["setVar:to:", "a", "100"],
+				["doIf",
+					[">", ["readVariable", "f"], ["readVariable", "a"]],
+					[["setVar:to:", "j", ["readVariable", "f"]],
+						["setVar:to:", "f", ["readVariable", "a"]],
+						["setVar:to:", "a", ["readVariable", "j"]]]],
+				["setVar:to:", "b", ["readVariable", "f"]],
+				["setVar:to:", "g", ["readVariable", "f"]],
+				["setVar:to:", "h", ["readVariable", "a"]],
+				["doUntil",
+					[">", ["readVariable", "b"], ["readVariable", "a"]],
+					[["setVar:to:", "c", "2"],
+						["setVar:to:", "d", ["computeFunction:of:", "sqrt", ["readVariable", "b"]]],
+						["doUntil",
+							[">", ["readVariable", "c"], ["readVariable", "d"]],
+							[["doIf",
+									["=", ["%", ["readVariable", "b"], ["readVariable", "c"]], "0"],
+									[["append:toList:", ["readVariable", "b"], "e"]]],
+								["changeVar:by:", "c", 1]]],
+						["doIf",
+							["not", ["list:contains:", "e", ["readVariable", "b"]]],
+						  [["append:toList:", ["readVariable", "b"], "prime numbers"],
+							 ["say:", ["readVariable", "b"]]]],
+						["changeVar:by:", "b", 1]]]]]],
+	"sounds": [{
+			"soundName": "pop",
+			"soundID": 0,
+			"md5": "83a9787d4cb6f3b7632b4ddfebf74367.wav",
+			"sampleCount": 258,
+			"rate": 11025,
+			"format": ""
+		}],
+	"costumes": [{
+			"costumeName": "backdrop1",
+			"baseLayerID": 1,
+			"baseLayerMD5": "58856246bb819cb9694cadcc10000e8e.png",
+			"bitmapResolution": 2,
+			"rotationCenterX": 480,
+			"rotationCenterY": 360
+		},
+		{
+			"costumeName": "backdrop2",
+			"baseLayerID": 2,
+			"baseLayerMD5": "815363a401b2016bdb41725eb8a216c6.png",
+			"bitmapResolution": 2,
+			"rotationCenterX": 480,
+			"rotationCenterY": 360
+		}],
+	"currentCostumeIndex": 0,
+	"penLayerMD5": "5c81a336fab8be57adc039a8a2b33ca9.png",
+	"penLayerID": 0,
+	"tempoBPM": 60,
+	"videoAlpha": 0.5,
+	"children": [{
+			"target": "Stage",
+			"cmd": "getVar:",
+			"param": "g",
+			"color": 15629590,
+			"label": "g",
+			"mode": 2,
+			"sliderMin": 0,
+			"sliderMax": 100,
+			"isDiscrete": true,
+			"x": 28,
+			"y": 326,
+			"visible": true
+		},
+		{
+			"target": "Stage",
+			"cmd": "getVar:",
+			"param": "a",
+			"color": 15629590,
+			"label": "a",
+			"mode": 2,
+			"sliderMin": 0,
+			"sliderMax": 100,
+			"isDiscrete": true,
+			"x": 248,
+			"y": 2,
+			"visible": true
+		},
+		{
+			"target": "Stage",
+			"cmd": "getVar:",
+			"param": "h",
+			"color": 15629590,
+			"label": "h",
+			"mode": 2,
+			"sliderMin": 0,
+			"sliderMax": 100,
+			"isDiscrete": true,
+			"x": 146,
+			"y": 325,
+			"visible": true
+		},
+		{
+			"target": "Stage",
+			"cmd": "getVar:",
+			"param": "i",
+			"color": 15629590,
+			"label": "i",
+			"mode": 2,
+			"sliderMin": 0,
+			"sliderMax": 100,
+			"isDiscrete": true,
+			"x": 106,
+			"y": 305,
+			"visible": true
+		},
+		{
+			"target": "Stage",
+			"cmd": "getVar:",
+			"param": "c",
+			"color": 15629590,
+			"label": "c",
+			"mode": 1,
+			"sliderMin": 0,
+			"sliderMax": 100,
+			"isDiscrete": true,
+			"x": 5,
+			"y": 266,
+			"visible": false
+		},
+		{
+			"target": "Stage",
+			"cmd": "getVar:",
+			"param": "b",
+			"color": 15629590,
+			"label": "b",
+			"mode": 1,
+			"sliderMin": 0,
+			"sliderMax": 100,
+			"isDiscrete": true,
+			"x": 5,
+			"y": 239,
+			"visible": false
+		},
+		{
+			"target": "Stage",
+			"cmd": "getVar:",
+			"param": "d",
+			"color": 15629590,
+			"label": "d",
+			"mode": 1,
+			"sliderMin": 0,
+			"sliderMax": 100,
+			"isDiscrete": true,
+			"x": 5,
+			"y": 293,
+			"visible": false
+		},
+		{
+			"target": "Stage",
+			"cmd": "getVar:",
+			"param": "f",
+			"color": 15629590,
+			"label": "f",
+			"mode": 2,
+			"sliderMin": 0,
+			"sliderMax": 100,
+			"isDiscrete": true,
+			"x": 89,
+			"y": 2,
+			"visible": true
+		},
+		{
+			"target": "Stage",
+			"cmd": "getVar:",
+			"param": "j",
+			"color": 15629590,
+			"label": "j",
+			"mode": 1,
+			"sliderMin": 0,
+			"sliderMax": 100,
+			"isDiscrete": true,
+			"x": 5,
+			"y": 5,
+			"visible": false
+		},
+		{
+			"listName": "prime numbers",
+			"contents": [2],
+			"isPersistent": false,
+			"x": 3,
+			"y": 30,
+			"width": 479,
+			"height": 280,
+			"visible": true
+		},
+		{
+			"listName": "e",
+			"contents": [4],
+			"isPersistent": false,
+			"x": 127,
+			"y": 71,
+			"width": 138,
+			"height": 248,
+			"visible": false
+		}],
+	"info": {
+		"flashVersion": "MAC 21,0,0,174",
+		"userAgent": "Scratch 2.0 Offline Editor",
+		"hasCloudData": false,
+		"scriptCount": 1,
+		"videoOn": false,
+		"spriteCount": 0,
+		"projectID": "11062600",
+		"swfVersion": "v447"
+	}
+}

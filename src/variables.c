@@ -3,6 +3,7 @@
 #include "types/sprite.h"
 
 #include "variables.h"
+#include "value.h"
 #include "ut/uthash.h"
 
 /* Variables */
@@ -25,14 +26,14 @@ void freeVariables(Variable **variables) {
 	}
 }
 
-void setVariable(Variable **variables, const char *const name, Value newValue) {
+void setVariable(Variable **variables, const char *const name, const Value *const newValue) {
 	Variable *var;
 	HASH_FIND_STR(*variables, name, var);
 	if(var == NULL)
-		createVariable(variables, name, newValue);
+		createVariable(variables, name, *newValue);
 	else {
 		var->name = name;
-		var->value = newValue;
+		var->value = extractSimplifiedValue(newValue);
 	}
 }
 
@@ -141,11 +142,11 @@ Value getListElement(const List *list, uint32 index) {
 		return element->value;
 }
 
-void listAppend(List *list, Value value) {
+void listAppend(List *list, const Value *const value) {
 	ListElement *newElement = malloc(sizeof(ListElement));
 	//if(newElement == NULL)
 	//puts("FALILED");
-	newElement->value = value;
+	newElement->value = extractSimplifiedValue(value);
 	newElement->next = NULL;
 	if(list->length == 0)
 		list->first = newElement;
@@ -156,18 +157,18 @@ void listAppend(List *list, Value value) {
 		++list->length;
 }
 
-void listPrepend(List *list, Value value) {
+void listPrepend(List *list, const Value *const value) {
 	ListElement *newElement = malloc(sizeof(ListElement));
 	//if(newElement == NULL)
 	//puts("FALILED");
-	newElement->value = value;
+	newElement->value = extractSimplifiedValue(value);
 	newElement->next = list->first;
 	list->first = newElement;
 	if(list->length != UINT32_MAX)
 		++list->length;
 }
 
-void listInsert(List *list, Value value, uint32 index) {
+void listInsert(List *list, const Value *const value, uint32 index) {
 	if(index == 0) { // could leave this out, and leave it up to the caller to choose listPrepend when index=0
 		listPrepend(list, value);
 		return;
@@ -177,35 +178,35 @@ void listInsert(List *list, Value value, uint32 index) {
 	if(previous == NULL) // don't add the element if it is out of bounds of the list
 		return;
 	ListElement *newElement = malloc(sizeof(ListElement));
-	newElement->value = value;
+	newElement->value = extractSimplifiedValue(value);
 	newElement->next = previous->next;
 	previous->next = newElement;
 	if(list->length != UINT32_MAX)
 		++list->length;
 }
 
-void listSetFirst(List *list, Value newValue) {
+void listSetFirst(List *list, const Value *const newValue) {
 	ListElement *element = list->first;
 	if(element == NULL)
 		return;
 	else
-		element->value = newValue;
+		element->value = extractSimplifiedValue(newValue);
 }
 
-void listSetLast(List *list, Value newValue) {
+void listSetLast(List *list, const Value *const newValue) {
 	ListElement *element = list->last;
 	if(element == NULL)
 		return;
 	else
-		element->value = newValue;
+		element->value = extractSimplifiedValue(newValue);
 }
 
-void listSet(List *list, Value newValue, uint32 index) {
+void listSet(List *list, const Value *const newValue, uint32 index) {
 	ListElement *element = findListElement(list, index);
 	if(element == NULL)
 		return;
 	else
-		element->value = newValue;
+		element->value = extractSimplifiedValue(newValue);
 }
 
 void listDeleteFirst(List *list) {
@@ -245,13 +246,13 @@ void listDelete(List *list, uint32 index) {
 		else {
 			ListElement *previous = findListElement(list, index-2);
 			if(previous == NULL)
-	return;
+				return;
 			ListElement *element = previous->next;
 			if(element == NULL)
-	return;
+				return;
 			previous->next = element->next;
 			if(previous->next == NULL)
-	list->last = previous;
+				list->last = previous;
 			freeListElement(element);
 			if(list->length != UINT32_MAX)
 				--list->length;
@@ -259,42 +260,53 @@ void listDelete(List *list, uint32 index) {
 	}
 }
 
-bool listContainsFloating(const List *list, double floating) {
+void listDeleteAll(List *list) {
+	ListElement *current, *next = list->first;
+	while(next != NULL) {
+		current = next;
+		next = current->next;
+		freeListElement(current);
+	}
+	list->first = list->last = NULL;
+	list->length = 0;
+}
+
+bool listContainsFloating(const List *list, const double floating) {
 	uint32 i;
 	ListElement *element = list->first;
 
 	for(i = 0; i < list->length; ++i) {
 		if(element->value.type == FLOATING) { // based on the fact that before a value is stored, it is simplified to a float if possible, so the only strings will be ones that can't be numbers
 			if(element->value.data.floating == floating)
-	return true;
+				return true;
 		}
 		element = element->next;
 	}
 	return false;
 }
 
-bool listContainsBoolean(const List *list, bool boolean) {
+bool listContainsBoolean(const List *list, const bool boolean) {
 	uint32 i;
 	ListElement *element = list->first;
 
 	for(i = 0; i < list->length; ++i) {
 		if(element->value.type == BOOLEAN) {
 			if(element->value.data.boolean == boolean)
-	return true;
+				return true;
 		}
 		element = element->next;
 	}
 	return false;
 }
 
-bool listContainsString(const List *list, const char *string) {
+bool listContainsString(const List *list, const char *const string) {
 	uint32 i;
 	ListElement *element = list->first;
 
 	for(i = 0; i < list->length; ++i) {
 		if(element->value.type == STRING) {
 			if(strcasecmp(element->value.data.string, string))
-	return true;
+				return true;
 		}
 		element = element->next;
 	}

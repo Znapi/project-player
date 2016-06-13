@@ -122,8 +122,8 @@ static inline void fsetCounter(const float newValue) {
 	 Maybe after I have a working version I will add pre-calcilating stack jumps again.
 **/
 
-static inline void pushStackFrame(Block **const nextStack) {
-	dynarray_push_back(activeContext->nextStacks, nextStack);
+static inline void pushStackFrame(const Block *nextStack) {
+	dynarray_push_back(activeContext->nextStacks, &nextStack);
 }
 
 static inline void popStackFrame(void) {
@@ -229,7 +229,7 @@ static bool stepActiveThread(void) {
 		activeContext->lastTime = newTime;
 
 		activeContext->nextBlock = interpret(activeContext->nextBlock, activeContext->stack, NULL, 1);
-		freeStrings(); // free strings allocated to during evaluation
+		strpool_empty(); // free strings allocated to during evaluation
 
 		while(activeContext->nextBlock == NULL) {
 			if(dynarray_len(activeContext->nextStacks) != 0)
