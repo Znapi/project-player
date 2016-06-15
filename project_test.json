@@ -2,7 +2,7 @@
 	"objName": "Stage",
 	"variables": [{
 			"name": "test var 1",
-			"value": " ωørld!",
+			"value": " world! \u03BB",
 			"isPersistent": false
 		},
 		{
@@ -12,7 +12,7 @@
 		}],
 	"lists": [{
 			"listName": "test list",
-			"contents": ["thing", "thing", "thing"],
+			"contents": ["a", "b", "c"],
 			"isPersistent": false,
 			"x": 5,
 			"y": 59,
@@ -33,8 +33,10 @@
 	"scripts": [[10,
 			10,
 			[["whenGreenFlag"],
+			 ["say:", ["\/", 4, 2]],
 			 ["wait:elapsed:from:", 2],
-			 ["say:", "waited"]]],
+			 ["say:", "waited"],
+			 ["say:", ["contentsOfList:", "test list"]]]],
 		 [10,
 			40,
 			[["whenGreenFlag"],

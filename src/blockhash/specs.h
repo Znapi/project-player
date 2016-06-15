@@ -220,13 +220,14 @@ const struct BlockSpec specs[] = {
 	{"hideVariable:", "bf_noop", s},
 
 	// Lists
-	{"contentsOfList:", "bf_noop", r},
+	{"contentsOfList:", "bf_list_getContents", r},
 
 	{"append:toList:", "bf_list_append", s},
 	{"deleteLine:ofList:", "bf_list_delete", s},
-	{"setLine:ofList:to:", "bf_noop", s},
+	{"insert:at:ofList:", "bf_list_insert", s},
+	{"setLine:ofList:to:", "bf_list_setElement", s},
 
-	{"getLine:ofList:", "bf_noop", r},
+	{"getLine:ofList:", "bf_list_getElement", r},
 	{"lineCountOfList:", "bf_list_length", r},
 	{"list:contains:", "bf_list_contains", b},
 

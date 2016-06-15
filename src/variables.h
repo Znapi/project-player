@@ -9,9 +9,9 @@ extern List* createList(List **lists, const char *name, ListElement *elements, u
 extern void freeLists(List **lists);
 extern List* getListPtr(List **lists, const char *name);
 
-extern Value getFirstListElement(const List *list);
-extern Value getLastListElement(const List *list);
-extern Value getListElement(const List *list, uint32 index);
+extern Value listGetFirst(const List *list);
+extern Value listGetLast(const List *list);
+extern Value listGet(const List *list, uint32 index);
 
 extern void listAppend(List *list, const Value *const value);
 extern void listPrepend(List *list, const Value *const value);

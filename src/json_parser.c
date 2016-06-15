@@ -13,6 +13,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <iconv.h>
+#include <errno.h>
 
 #include "jsmn/jsmn.h"
 #include <cmph.h>
@@ -41,6 +43,10 @@ struct parsingData_t {
 	cmph_t *mph;
 	blockhash noop_hash; // hash "noop" once, use many times
 	blockhash doIf_hash;
+
+	iconv_t charCd;
+	dynarray *charBuffer1; // buffers to temporarily store strings
+	dynarray *charBuffer2;
 
 	dynarray *blockBuffer;
 	dynarray *valueBuffer;
@@ -75,15 +81,13 @@ static const Value *valueBuffers; // store pointers to all of the memory chunks 
 #define tokceq(str) (strncmp(str, gjson(TOKC), tokclen()) == 0)
 // extract the text pointed to by the current token into dst and using tmpLen
 #define tokcext(dst) {																									\
-		dst = malloc(tokclen());																						\
-		if(dst == NULL)																											\
-			puts("[FATAL]Could not malloc dst string in tokcext");						\
-		memcpy(dst, gjson(TOKC), tokclen()*sizeof(char));										\
-		dst[tokclen()] = '\0';																							\
+		parseString(pd, gjson(TOKC), tokclen(), pd->charBuffer1);						\
+		dynarray_extract(pd->charBuffer1, (void**)&dst);										\
+		/*if(dst == NULL)*/																									\
+		/*	puts("[FATAL]Could not malloc dst string in tokcext");*/				\
 	}
 
 #define hash(key, keylen) ((blockhash)(cmph_search(pd->mph, key, keylen)))
-#define HASH() (hash(gjson(TOKC), tokclen()))
 
 #define initializeSpriteContext(c) {															\
 		c->variables = NULL;																					\
@@ -156,10 +160,73 @@ static void skip(struct parsingData_t *const pd) {
 }
 
 #define SKIP() skip(pd);
+
+/* Parses the string starting at str of length len into the given dynarray.
+	 If the string needs to be kept after parsing, then a simple dynarray_extract will work. */
+static char* parseString(struct parsingData_t *const pd, const char *str, const unsigned len, dynarray *const charBuffer) {
+	dynarray_clear(charBuffer);
+	dynarray_ensure_size(charBuffer, len);
+	const char *const end = str+len;
+	char c; uint32 w;
+
+	char *inbuf, *outbuf;
+	size_t inbytesleft, outbytesleft;
+
+	for(; str != end; ++str) {
+		c = *str;
+		if(c == '\\') {
+			++str;
+			c = *str;
+			switch(c) {
+			case 'b': c = '\b'; break;
+			case 'f': c = '\f'; break;
+			case 'n': c = '\n'; break;
+			case 'r': c = '\r'; break;
+			case 't': c = '\t'; break;
+			case 'u':
+				++str;
+				inbuf = (char*)str+4; // ugly variable reuse
+				w = (uint32)strtol(str, &inbuf, 16);
+				if(w < 128) { // if the codepoint is within the ASCII range
+					c = (char)w;
+					str+=3;
+					break;
+				}
+				else {
+					dynarray_reserve(charBuffer, 4);
+
+					inbuf = (char*)&w; outbuf = charBuffer->d + charBuffer->i;
+					inbytesleft = 4; outbytesleft = 4;
+					if(iconv(pd->charCd, &inbuf, &inbytesleft, &outbuf, &outbytesleft) == (size_t)-1) {
+						puts("[WARNING]Could not convert unicode codepoint to UTF-8");
+						switch(errno) {
+						case E2BIG: puts("\terrno = E2BIG"); break;
+						case EILSEQ: puts("\terrno = EILSEQ"); break;
+						case EINVAL: puts("\terrno = EINVAL"); break;
+						}
+					}
+
+					charBuffer->i += 4 - outbytesleft;
+					str += 3;
+					continue;
+				}
+			}
+		}
+		dynarray_push_back(charBuffer, &c);
+	}
+	dynarray_extend_back(charBuffer); // append a terminator to the string
+	return NULL;
+}
+
+static inline blockhash _HASH(struct parsingData_t *const pd) {
+	parseString(pd, gjson(TOKC), tokclen(), pd->charBuffer1);
+	return hash(pd->charBuffer1->d, pd->charBuffer1->i-1);
+}
+#define HASH() (_HASH(pd))
+
 static void parseVariables(struct parsingData_t *const pd) {
 	uint16 elementsToGo, propertiesToGo;
-	char *name;
-	jsmntok_t *valueToken;
+	const char *name;
 	puts("variables");
 
 	++pd->i; // advance to array
@@ -176,20 +243,20 @@ static void parseVariables(struct parsingData_t *const pd) {
 			}
 			else if(tokceq("value")) {
 				++pd->i; // advance to value
-				valueToken = tokens+pd->i;
+				parseString(pd, gjson(TOKC), tokclen(), pd->charBuffer2);
 			}
 			else
 				++pd->i;
 		} while(--propertiesToGo != 0);
-		createVariable(&pd->currentContext->variables, name, strnToValue(gjson(*valueToken), toklen(*valueToken)));
+		createVariable(&pd->currentContext->variables, name, strnToValue(pd->charBuffer2->d, pd->charBuffer2->i-1));
 	} while(--elementsToGo != 0);
 	++pd->i; // advance from last property
 }
 
 static void parseLists(struct parsingData_t *const pd) {
 	uint16 elementsToGo, propertiesToGo;
-	char *name;
 	const jsmntok_t *valueToken;
+	const char *name;
 	puts("lists");
 
 	++pd->i; // advance to array
@@ -212,12 +279,14 @@ static void parseLists(struct parsingData_t *const pd) {
 				++pd->i; // advance to value
 		} while(--propertiesToGo != 0);
 		List* list = createList(&pd->currentContext->lists, name, NULL, 0);
-		Value value = strnToValue(gjson(*valueToken), toklen(*valueToken));
+		Value value;
 		for(propertiesToGo = valueToken->size; propertiesToGo != 0; --propertiesToGo) {
 			++valueToken;
+			parseString(pd, gjson(*valueToken), toklen(*valueToken), pd->charBuffer2);
+			value = strnToValue(pd->charBuffer2->d, pd->charBuffer2->i-1);
 			listAppend(list, &value);
+			if(value.type == STRING) free(value.data.string);
 		}
-		if(value.type == STRING) free(value.data.string);
 	} while(--elementsToGo != 0);
 	++pd->i; // advance from last property
 }
@@ -244,13 +313,13 @@ static void parseBlockArgs(struct parsingData_t *const pd, uint16 childrenToGo, 
 			tmpBlock.hash = pd->noop_hash;
 			tmpValue.type = STRING;
 			tokcext(tmpValue.data.string); // parse string into Value
-			dynarray_push_back(pd->indicesBuffer, &dynarray_len(pd->valueBuffer)); // record index of Value that this Block will refence
+			dynarray_push_back(pd->indicesBuffer, &dynarray_len(pd->valueBuffer)); // record index of Value that this Block will reference
 			dynarray_push_back(pd->valueBuffer, &tmpValue); // store value in persistent memory
 		}
 		else { // else argument is a primitive
 			tmpBlock.hash = pd->noop_hash;
-			tmpValue = strnToValue(gjson(TOKC), tokclen()); // parse value from JSON
-			dynarray_push_back(pd->indicesBuffer, &dynarray_len(pd->valueBuffer)); // record index of Value that this Block will refence
+			tmpValue = strnToValue(gjson(TOKC), tokclen()); // parse value from JSON (assume characters are within ASCII range)
+			dynarray_push_back(pd->indicesBuffer, &dynarray_len(pd->valueBuffer)); // record index of Value that this Block will reference
 			dynarray_push_back(pd->valueBuffer, &tmpValue); // store value in persistent memory
 		}
 		dynarray_push_back(pd->blockBuffer, &tmpBlock); // append block in buffer to script
@@ -285,7 +354,7 @@ static bool parseStack(struct parsingData_t *const pd, uint16 stackBlocksToGo, c
 
 		// link previous stack block to this stack block
 		if(!isFirstBlock)
-			*dynarray_eltptr(pd->indicesBuffer, indexForLastBlock) = dynarray_len(pd->blockBuffer); // point the previous stack block to this stack block (aka following stack)
+			*(unsigned int*)dynarray_eltptr(pd->indicesBuffer, indexForLastBlock) = dynarray_len(pd->blockBuffer); // point the previous stack block to this stack block (aka following stack)
 
 		// handle linking blocks properly
 		switch(blockTypesTable[tmpBlock.hash]) {
@@ -386,20 +455,20 @@ static void parseScripts(struct parsingData_t *const pd) {
 			if(parseStack(pd, stackBlocksToGo, 0)) {
 				tmpThreadContext = createThreadContext(pd->currentContext, NULL);
 
-				dynarray_extract(pd->blockBuffer, block);
+				dynarray_extract(pd->blockBuffer, (void**)&block);
 				tmpThreadContext.nextBlock = block;
-				dynarray_extract(pd->valueBuffer, valueBuffer);
+				dynarray_extract(pd->valueBuffer, (void**)&valueBuffer);
 				dynarray_push_back(pd->valueBuffers, &valueBuffer);
 
 				index = NULL;
 				// calculate pointers using indicesBuffer TODO: repetative code, refractor?
 				for(stackBlocksToGo = 0; stackBlocksToGo < dynarray_len(pd->blockBuffer); ++stackBlocksToGo) {
 					if(block->hash == pd->noop_hash) {
-						index = (unsigned int*)dynarray_next(pd->indicesBuffer, index);
+						index = (unsigned int*)dynarray_next(pd->indicesBuffer, (void*)index);
 						block->p.value = valueBuffer + *index;
 					}
 					else if(block->level == 0) {
-						index = (unsigned int*)dynarray_next(pd->indicesBuffer, index);
+						index = (unsigned int*)dynarray_next(pd->indicesBuffer, (void*)index);
 						if(block->p.subStacks == NULL) {
 							if(*index == 0)
 								block->p.next = NULL;
@@ -409,7 +478,7 @@ static void parseScripts(struct parsingData_t *const pd) {
 						else {
 							k = *index;
 							for(j = 0; j < k; ++j) {
-								index = (unsigned int*)dynarray_next(pd->indicesBuffer, index);
+								index = (unsigned int*)dynarray_next(pd->indicesBuffer, (void*)index);
 								if(*index == 0)
 									block->p.subStacks[j] = NULL;
 								else
@@ -460,12 +529,21 @@ int main(void) {
 		0,
 		0,
 
+		0,
+		NULL,
+		NULL,
 
 		NULL,
+		NULL,
+		NULL,
+
+		NULL,
+		NULL,
+
 		NULL,
 	};
 
-	pd.jsonSize = loadFile("project_primes.json", &pd.json);
+	pd.jsonSize = loadFile("project_test.json", &pd.json);
 	if(pd.jsonSize == 0)
 		return 1;
 
@@ -478,6 +556,11 @@ int main(void) {
 	loadBlockHashFunc(&pd);
 	pd.noop_hash = (blockhash)cmph_search(pd.mph, "noop", (cmph_uint32)4);
 	pd.doIf_hash = (blockhash)cmph_search(pd.mph, "doIf", (cmph_uint32)4);
+
+	pd.charCd = iconv_open("UTF-8", "UTF-32LE"); // LE for little-endian
+	if(pd.charCd == (iconv_t)-1) puts("[WARNING]Could not create encoding conversion descriptor.");
+	dynarray_new(pd.charBuffer1, sizeof(char));
+	dynarray_new(pd.charBuffer2, sizeof(char));
 
 	dynarray_new(pd.blockBuffer, sizeof(Block));
 	dynarray_new(pd.valueBuffer, sizeof(Value));
@@ -529,6 +612,8 @@ int main(void) {
 		printf(", %i, %i, %i }\n", pd.tokens[i].start, pd.tokens[i].end, pd.tokens[i].size);
 		}*/
 
+	dynarray_free(pd.charBuffer1);
+	dynarray_free(pd.charBuffer2);
 	dynarray_free(pd.blockBuffer);
 	dynarray_free(pd.valueBuffer);
 	dynarray_free(pd.indicesBuffer);
@@ -536,11 +621,11 @@ int main(void) {
 	/* give the runtime the scripts to run on green flag pressed */
 	ThreadContext *greenFlagContexts;
 	uint16 nContexts = dynarray_len(pd.greenFlagScripts);
-	dynarray_finalize(pd.greenFlagScripts, greenFlagContexts);
+	dynarray_finalize(pd.greenFlagScripts, (void**)&greenFlagContexts);
 	setContextsForGreenFlags(greenFlagContexts, nContexts);
 
 	nValueBuffers = dynarray_len(pd.valueBuffers);
-	dynarray_finalize(pd.valueBuffers, valueBuffers);
+	dynarray_finalize(pd.valueBuffers, (void**)&valueBuffers);
 
 	cmph_destroy(pd.mph);
 	free(pd.json);

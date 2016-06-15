@@ -9,7 +9,7 @@ WARNING_FLAGS=-Wall
 #-Warray-bounds=1 -Wbool-compare -Wmaybe-uninitialized -Wopenmp-simd -Wsign-compare -Wunused-function -Wclobbered -Wmissing-parameter-type -Wold-style-declaration -Woverride-init -Wshift-negative-value -Wunused-but-set-parameter -Wunused-parameter
 
 INCLUDE_PATHS=
-LIBS=-lSOIL -lcmph
+LIBS=-lSOIL -lcmph -liconv
 GLOBAL_FLAGS=-O0 -g -fstandalone-debug
 CFLAGS=-DHASH_FUNCTION=HASH_OAT $(WARNING_FLAGS) $(GLOBAL_FLAGS) $(INCLUDE_PATHS)
 

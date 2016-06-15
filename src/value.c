@@ -150,7 +150,7 @@ uint32 toString(const Value *const value, char **string) {
 	switch(value->type) {
 
 	case FLOATING:
-		sprintf(buf, "%f", value->data.floating);
+		sprintf(buf, "%g", value->data.floating);
 		size = strlen(buf)+1;
 		*string = strpool_alloc(size);
 		memcpy(*string, buf, size);

@@ -13,7 +13,7 @@
 
 #include <string.h>
 #include <stdlib.h>
-//#include <stdio.h>
+#include <stdio.h>
 
 #include "strpool.h"
 
@@ -34,18 +34,43 @@ static struct Link *listHead = NULL;
 
 /* allocates a string that doesn't make the caller responsible for freeing it, it's pointer is recorded and is freed automatically */
 char* strpool_alloc(uint32 length) {
+	struct Link *previousItem = listHead;
+	/*puts("---->");
+	previousItem = listHead;
+	while(previousItem != NULL) {
+		printf("\t%p %p  \"%s\"\n", previousItem, previousItem->str, previousItem->str);
+		previousItem = previousItem->next;
+	}
+	puts("\t----");
+	previousItem = listHead;*/
+
 	if(listHead == NULL) {
 		listHead = malloc(sizeof(struct Link));
 		listHead->next = NULL;
 	}
 	else {
-		struct Link *previousItem = listHead;
 		listHead = malloc(sizeof(struct Link));
 		listHead->next = previousItem;
 	}
-	//printf("ALLOC: %p %p\n", ptr_list_head, str); // used in manually verifying that the right amount of frees was being done
+	if(listHead == NULL) {
+		puts("[ERROR]Could not allocate link in strpool.");
+		return NULL;
+	}
 
 	listHead->str = malloc(length);
+	if(listHead->str == NULL)
+		puts("[ERROR]Could not allocate string in strpool.");
+
+	/*previousItem = listHead;
+	printf("\t%p %p  <no string>\n", previousItem, previousItem->str);
+	previousItem = listHead->next;
+	while(previousItem != NULL) {
+		printf("\t%p %p  \"%s\"\n", previousItem, previousItem->str, previousItem->str);
+		previousItem = previousItem->next;
+	}
+	puts("<----");*/
+	//printf("ALLOC: %p %p\n", listHead, listHead->str); // used in manually verifying that the right amount of frees was being done
+	
 	return listHead->str;
 }
 

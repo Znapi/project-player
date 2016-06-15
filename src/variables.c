@@ -108,14 +108,14 @@ List* getListPtr(List **lists, const char *name) {
 
 const Value zeroValue = {{0.0}, FLOATING};
 
-Value getFirstListElement(const List *list) {
+Value listGetFirst(const List *list) {
 	if(list->first == NULL)
 		return zeroValue;
 	else
 		return list->first->value;
 }
 
-Value getLastListElement(const List *list) {
+Value listGetLast(const List *list) {
 	if(list->last == NULL)
 		return zeroValue;
 	else
@@ -134,7 +134,7 @@ static inline ListElement* findListElement(const List *list, uint32 index) {
 	return element;
 }
 
-Value getListElement(const List *list, uint32 index) {
+Value listGet(const List *list, uint32 index) {
 	ListElement *element = findListElement(list, index);
 	if(element == NULL)
 		return zeroValue;
@@ -169,11 +169,6 @@ void listPrepend(List *list, const Value *const value) {
 }
 
 void listInsert(List *list, const Value *const value, uint32 index) {
-	if(index == 0) { // could leave this out, and leave it up to the caller to choose listPrepend when index=0
-		listPrepend(list, value);
-		return;
-	}
-
 	ListElement *previous = findListElement(list, index-1); // index-1 is why there is a special case for index=0
 	if(previous == NULL) // don't add the element if it is out of bounds of the list
 		return;

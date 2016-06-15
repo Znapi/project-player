@@ -127,7 +127,7 @@ static inline void pushStackFrame(const Block *nextStack) {
 }
 
 static inline void popStackFrame(void) {
-	activeContext->nextBlock = *((Block**)dynarray_back_unsafe(activeContext->nextStacks)); // `unsafe` means don't check if there even is a back
+	activeContext->nextBlock = *((Block**)dynarray_back_unchecked(activeContext->nextStacks)); // `unsafe` means don't check if there even is a back
 	dynarray_pop_back(activeContext->nextStacks);
 }
 
