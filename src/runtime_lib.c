@@ -9,10 +9,10 @@
 	This file is meant to just be included in another C file rather than linked.
 **/
 
-/* 
+/*
 	TODO
-		make string manupulation utf-8 compatible
-		finish stop_scripts when threading is added, and add cloning sometime
+		***make string manupulation utf-8 compatible***
+		add cloning sometime
 		showing/hiding monitors when graphics are implemented
 */
 
@@ -360,6 +360,7 @@ BF(get_variable) {
 	return NULL;
 }
 
+// TODO: add scoping
 BF(variable_set) {
 	char *name;
 	toString(arg+0, &name);
@@ -396,21 +397,30 @@ BF(list_getContents) {
 	uint32 i = 0, nRequiredChars = 0;
 	ListElement *listElement = list->first;
 
-	while(listElement != NULL) { // todo: lists where each element is a single character don't get spaces
-		nRequiredChars += toString(&listElement->value, elements+i) + 1;
+	while(listElement != NULL) {
+		nRequiredChars += toString(&listElement->value, elements+i);
 		listElement = listElement->next;
 		++i;
 	}
 
+	if(nRequiredChars == list->length)
+		++nRequiredChars; // make room for terminator
+	else
+		nRequiredChars += list->length;
 	str = strpool_alloc(nRequiredChars);
 	reportSlot->data.string = str;
 	reportSlot->type = STRING;
 
-	for(i = 0; i < list->length; ++i) {
-		str = stpcpy(str, elements[i]);
-		*(str++) = ' ';
+	if(nRequiredChars == list->length + 1) { // if each element is a single character
+		for(i = 0; i < list->length; ++i)
+			str = stpcpy(str, elements[i]);
 	}
-	*(--str) = '\0';
+	else {
+		for(i = 0; i < list->length; ++i) {
+			str = stpcpy(str, elements[i]);
+			*(str++) = ' ';
+		}
+	}
 
 	free(elements);
 	return NULL;

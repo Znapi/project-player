@@ -8,6 +8,9 @@
 
 	The goal is to not store anything in static memory that doesn't live thoughout the
 	entirety of running a project.
+
+	Before you look at the code, know that it is kinda messy...barely any planning was
+	done before writing most of this file.
 **/
 
 #include <stdio.h>
@@ -433,7 +436,7 @@ static void parseScripts(struct parsingData_t *const pd) {
 	puts("scripts");
 	uint16 scriptsToGo, stackBlocksToGo;
 	ubyte j, k;
-	ThreadLink tmpThread = {{0}, pd->currentContext, NULL}; // TODO: put all threads in one big array
+	ThreadLink tmpThread = {{0}, pd->currentContext, NULL};
 
 	Block *block;
 	Value *valueBuffer;
