@@ -51,16 +51,12 @@ struct parsingData_t {
 	dynarray *blockBuffer;
 	dynarray *valueBuffer;
 	dynarray *indicesBuffer; // used by blocks in the blockBuffer to store indices of blocks or values that they reference
+	dynarray *valueBuffers; // temporarily store pointers to all of the memory chunks of Values so that they can be freed.
 	
 	SpriteContext *currentContext;
-	dynarray *greenFlagScripts;
-
-	dynarray *valueBuffers; // temporarily store pointers to all of the memory chunks of Values so that they can be freed.
+	dynarray *threads;
+	dynarray *greenFlagThreadIndices;
 };
-
-// TODO: free valueBuffers pointed to by valueBuffers somewhere
-static unsigned int nValueBuffers;
-static const Value *valueBuffers; // store pointers to all of the memory chunks of Values so that they can be freed.
 
 // macros for convenience
 #define json (pd->json)
@@ -437,7 +433,7 @@ static void parseScripts(struct parsingData_t *const pd) {
 	puts("scripts");
 	uint16 scriptsToGo, stackBlocksToGo;
 	ubyte j, k;
-	ThreadContext tmpThreadContext;
+	ThreadLink tmpThread = {{0}, pd->currentContext, NULL}; // TODO: put all threads in one big array
 
 	Block *block;
 	Value *valueBuffer;
@@ -453,10 +449,9 @@ static void parseScripts(struct parsingData_t *const pd) {
 
 		if(tokceq("whenGreenFlag")) { // only if it is a hat block (just green flag for now)
 			if(parseStack(pd, stackBlocksToGo, 0)) {
-				tmpThreadContext = createThreadContext(pd->currentContext, NULL);
-
 				dynarray_extract(pd->blockBuffer, (void**)&block);
-				tmpThreadContext.nextBlock = block;
+				tmpThread.thread = createThreadContext(block);
+
 				dynarray_extract(pd->valueBuffer, (void**)&valueBuffer);
 				dynarray_push_back(pd->valueBuffers, &valueBuffer);
 
@@ -473,7 +468,7 @@ static void parseScripts(struct parsingData_t *const pd) {
 							if(*index == 0)
 								block->p.next = NULL;
 							else
-								block->p.next = (Block*)tmpThreadContext.nextBlock + *index;
+								block->p.next = (Block*)tmpThread.thread.startingBlock + *index;
 						}
 						else {
 							k = *index;
@@ -482,14 +477,15 @@ static void parseScripts(struct parsingData_t *const pd) {
 								if(*index == 0)
 									block->p.subStacks[j] = NULL;
 								else
-									block->p.subStacks[j] = (Block*)tmpThreadContext.nextBlock + *index;
+									block->p.subStacks[j] = (Block*)tmpThread.thread.startingBlock + *index;
 							}
 						}
 					}
 					++block;
 				}
 
-				dynarray_push_back(pd->greenFlagScripts, &tmpThreadContext); // add script to list of green flag scripts
+				dynarray_push_back(pd->greenFlagThreadIndices, &dynarray_len(pd->threads)); // add script to list of green flag scripts
+				dynarray_push_back(pd->threads, &tmpThread); // add script to array of scripts
 
 				dynarray_clear(pd->blockBuffer);
 				dynarray_clear(pd->valueBuffer);
@@ -506,6 +502,14 @@ static void parseScripts(struct parsingData_t *const pd) {
 	pd->i++;
 }
 
+static void loadHats(struct parsingData_t *const pd, ThreadLink *const threads) {
+	unsigned int i = 0;
+	ThreadLink **hats = malloc(i*sizeof(ThreadLink**));
+	for(i = 0; i < dynarray_len(pd->greenFlagThreadIndices); ++i)
+		hats[i] = threads+i;
+	setGreenFlagThreads(hats, i);
+}
+
 #undef json
 #undef jsonSize
 #undef tokens
@@ -517,6 +521,7 @@ static void parseScripts(struct parsingData_t *const pd) {
 #define TOKC (pd.tokens[pd.i])
 
 int main(void) {
+	/* initialize all resources used during loading */
 	struct parsingData_t pd = {
 		NULL,
 		0,
@@ -536,10 +541,10 @@ int main(void) {
 		NULL,
 		NULL,
 		NULL,
+		NULL,
 
 		NULL,
 		NULL,
-
 		NULL,
 	};
 
@@ -566,12 +571,13 @@ int main(void) {
 	dynarray_new(pd.valueBuffer, sizeof(Value));
 	dynarray_new(pd.indicesBuffer, sizeof(unsigned int));
 
-	dynarray_new(pd.greenFlagScripts, sizeof(ThreadContext));
+	dynarray_new(pd.threads, sizeof(ThreadLink));
+	dynarray_new(pd.greenFlagThreadIndices, sizeof(unsigned int));
 
 	dynarray_new(pd.valueBuffers, sizeof(Value*));
 
-	// parse the file with the tokens
-	/* For the Scratch JSON files we can assume that the whole thing is wrapped in an object,
+	/* parse
+		 For the Scratch JSON files we can assume that the whole thing is wrapped in an object,
 		 and that everything inside that is key-value pairs, where the key is a single string.  */
 	uint16 i = pd.tokens[0].size;
 
@@ -612,28 +618,33 @@ int main(void) {
 		printf(", %i, %i, %i }\n", pd.tokens[i].start, pd.tokens[i].end, pd.tokens[i].size);
 		}*/
 
+	/* free resources used during parsing */
 	dynarray_free(pd.charBuffer1);
 	dynarray_free(pd.charBuffer2);
 	dynarray_free(pd.blockBuffer);
 	dynarray_free(pd.valueBuffer);
 	dynarray_free(pd.indicesBuffer);
-
-	/* give the runtime the scripts to run on green flag pressed */
-	ThreadContext *greenFlagContexts;
-	uint16 nContexts = dynarray_len(pd.greenFlagScripts);
-	dynarray_finalize(pd.greenFlagScripts, (void**)&greenFlagContexts);
-	setContextsForGreenFlags(greenFlagContexts, nContexts);
-
-	nValueBuffers = dynarray_len(pd.valueBuffers);
-	dynarray_finalize(pd.valueBuffers, (void**)&valueBuffers);
-
 	cmph_destroy(pd.mph);
 	free(pd.json);
 	free(pd.tokens);
 	puts("done parsing.");
 
+	/* retrieve what was parsed that needs to be kept */
+	ThreadLink *threads;
+	dynarray_finalize(pd.threads, (void**)&threads);
+
+	static unsigned int nValueBuffers;
+	static const Value *valueBuffers; // store pointers to all of the memory chunks of Values so that they can be freed.
+	nValueBuffers = dynarray_len(pd.valueBuffers);
+	dynarray_finalize(pd.valueBuffers, (void**)&valueBuffers);
+
+	/* load what was parsed into the runtime */
+	pd.currentContext->threads = threads;
+	loadHats(&pd, threads);
+	dynarray_free(pd.greenFlagThreadIndices);
+
 	puts("starting");
-	restartThreadsForGreenFlag();
+	restartGreenFlagThreads();
 	puts("running");
 	stepThreads();
 	puts("done.");

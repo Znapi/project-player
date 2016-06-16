@@ -257,7 +257,7 @@ const struct BlockSpec specs[] = {
 	{"doForeverIf", "bf_noop", cf},
 
 	{"sayNothing", "bf_noop", s},
-	//{turnAwayFromEdge, s}, // never implemented in any full release
+	//{turnAwayFromEdge, s}, // never actually implemented in any full release
 
 	// Testing blocks and experimental control blocks
 	{"COUNT", "bf_noop", s},

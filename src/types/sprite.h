@@ -23,11 +23,14 @@ struct List {
 	UT_hash_handle hh;
 };
 typedef struct List List;
-// TODO: switch to dynarrays
+// TODO: switch lists to dynarrays
 
 struct SpriteContext {
+	struct ThreadLink *threads; // array of thread contexts
+
 	struct Variable *variables; // a hash table of Scratch variables
 	struct List *lists; // a hash table of Scratch lists
+
 	int16 xpos, ypos, direction;
 	uint16 layer, costumeNumber, size,
 		volume, tempo;

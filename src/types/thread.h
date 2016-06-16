@@ -10,7 +10,9 @@ union Counter {
 
 struct ThreadContext {
 	struct Value *stack; // A pointer to this thread's stack / argument pool TODO: make this a dynarray
-	const struct Block *nextBlock; // pointer to next block[]
+
+	const struct Block *const startingBlock;
+	const struct Block *nextBlock;
 
 	dynarray *nextStacks; // TODO: embed the dynarray into ThreadContext (change declaration to `dynarray nextStacks`, don't use pointer)
 
@@ -22,12 +24,17 @@ struct ThreadContext {
 		ufastest slotsUsed;
 	} counters;
 
-	struct SpriteContext *const spriteCtx; // where sprite/stage attributes/variables can be accessed
-
 	//struct Variable **parameters; // custom block parameters
 	//struct Variable **parametersOfPrevStacks; // if only Scratch had a proper scoping system...can't wait to see how Scratch 3 will handle it
 };
 typedef struct ThreadContext ThreadContext;
+
+struct ThreadLink {
+	struct ThreadContext thread;
+	struct SpriteContext *sprite;
+	struct ThreadLink *next;
+};
+typedef struct ThreadLink ThreadLink;
 
 /*
 	Evaluating Blocks

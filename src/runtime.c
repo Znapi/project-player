@@ -2,30 +2,7 @@
 	Runtime
 			runtime.c
 
-	Interprets the blocks and manages the threads.
-
-	The interpreter is still simple like in the Flash version, and in fact even simpler.
-	It looks up the opcode string of a block in a dictionary (hashtable	specifically),
-	getting a function pointer, and calls that function. The function accomplishes what
-	the block is supposed to do, then returns the a pointer to the next block in the
-	stack, or NULL if it is the end of the stack.
-
-	Unlike the Flash version, control blocks aren't that special. They are treated like
-	any other block, and have a function just like any other block. States aren't used
-	like in the Flash version. Instead, a little extra work is done when making Block
-	stacks, and control blocks contain pointers to the block sequences they can move
-	the program flow to.
-
-	Also unlike the Flash version, Scratch blocks are evaluated top-down. This reduces
-	the amount of recursion done. The way blocks are stored in the JSON actually is
-	helpful here. Arrays of blocks stored internally are basically the same arrays of
-	blocks in the JSON but reversed.
-
-	Thread management is pretty much a port from Flash version. If you know how	it
-	works there, then you already know how it works here.
-
-	Currently the goal is to mimic the Flash version because it works. Once this
-	version is feature-complete, then changes can be made to make it more efficient.
+	TODO description
 **/
 
 #include <stdio.h>
@@ -47,21 +24,15 @@
 #include "strpool.h"
 #include "value.h"
 
-static ThreadContext *activeContext;
-static clock_t dtime;
+static ThreadContext *activeThread;
+static SpriteContext *activeSprite;
 
 static Variable *stageVariables;
 static List *stageLists;
 
-/* An *item* in the linked list of ThreadContexts, despite being called a "...List" */
-struct ThreadContextList {
-	struct ThreadContext *context;
-	struct ThreadContextList *next;
-};
-typedef struct ThreadContextList ThreadContextList;
+static ThreadLink runningThreads = {{0}, NULL, NULL}; // the first item of the list is a stub that points to the first real item
 
-static ThreadContextList contexts = {NULL, NULL}; // stub item that points to the first actual item of the linked list of contexts.
-
+static clock_t dtime;
 static const clock_t workTime = (clock_t).75f * 1000 / 30; // work only for 75% of the alloted frame time. taken from Flash version.
 static bool doRedraw, doYield;
 
@@ -75,14 +46,14 @@ static bool doRedraw, doYield;
 
 /* alloc is not quite the right term, but I couldn't think of a better one */
 static bool allocCounter(const Block *const block) {
-	if(activeContext->counters.slotsUsed == 0) {
-		activeContext->counters.owners[activeContext->counters.slotsUsed] = block;
-		++activeContext->counters.slotsUsed;
+	if(activeThread->counters.slotsUsed == 0) {
+		activeThread->counters.owners[activeThread->counters.slotsUsed] = block;
+		++activeThread->counters.slotsUsed;
 		return true;
 	}
-	else if(activeContext->counters.owners[activeContext->counters.slotsUsed-1] != block) {
-		activeContext->counters.owners[activeContext->counters.slotsUsed] = block;
-		++activeContext->counters.slotsUsed;
+	else if(activeThread->counters.owners[activeThread->counters.slotsUsed-1] != block) {
+		activeThread->counters.owners[activeThread->counters.slotsUsed] = block;
+		++activeThread->counters.slotsUsed;
 		return true;
 	}
 	else
@@ -90,51 +61,161 @@ static bool allocCounter(const Block *const block) {
 }
 
 static void freeCounter(void) {
-	--activeContext->counters.slotsUsed;
-	activeContext->counters.owners[activeContext->counters.slotsUsed] = NULL;
+	--activeThread->counters.slotsUsed;
+	activeThread->counters.owners[activeThread->counters.slotsUsed] = NULL;
 }
 
 /* get the unsigned integer value of the current counter */
 static inline uint32 ugetCounter(void) {
-	return activeContext->counters.counters[activeContext->counters.slotsUsed-1].u;
+	return activeThread->counters.counters[activeThread->counters.slotsUsed-1].u;
 }
 
 /* set the unsigned integer value of the current counter */
 static inline void usetCounter(const uint32 newValue) {
-	activeContext->counters.counters[activeContext->counters.slotsUsed-1].u = newValue;
+	activeThread->counters.counters[activeThread->counters.slotsUsed-1].u = newValue;
 }
 
 /* get the single precision floating point value from the counter */
 static inline float fgetCounter(void) {
-	return activeContext->counters.counters[activeContext->counters.slotsUsed-1].f;
+	return activeThread->counters.counters[activeThread->counters.slotsUsed-1].f;
 }
 
 static inline void fsetCounter(const float newValue) {
-	activeContext->counters.counters[activeContext->counters.slotsUsed-1].f = newValue;
+	activeThread->counters.counters[activeThread->counters.slotsUsed-1].f = newValue;
 }
 
 /**
 	 Stack Frame Handling
 
-	 Originally, the plan was to pre-calculate stack jumps during the parsing stage, but
-	 that required lots of tracking of stacks that I decided to ditch for just using
-	 stack frames. Stack frames also allow for local variables...if they ever come about.
-	 Maybe after I have a working version I will add pre-calcilating stack jumps again.
+	 Originally, the plan was to pre-calculate stack jumps during the parsing stage, but that
+	 required lots of tracking of stacks during the parsing that I decided to ditch for just
+	 using stack frames. Stack frames also allow for local variables...if they ever come
+	 about. Maybe after I have a working version I will add pre-calculating stack jumps again.
 **/
 
 static inline void pushStackFrame(const Block *nextStack) {
-	dynarray_push_back(activeContext->nextStacks, &nextStack);
+	dynarray_push_back(activeThread->nextStacks, &nextStack);
 }
 
 static inline void popStackFrame(void) {
-	activeContext->nextBlock = *((Block**)dynarray_back_unchecked(activeContext->nextStacks)); // `unsafe` means don't check if there even is a back
-	dynarray_pop_back(activeContext->nextStacks);
+	activeThread->nextBlock = *((Block**)dynarray_back_unchecked(activeThread->nextStacks)); // `unsafe` means don't check if there even is a back
+	dynarray_pop_back(activeThread->nextStacks);
+}
+
+/**
+	 Thread Control
+
+	 This part also resembles Interpreter.as in scratch-flash.
+
+	 In order for the interpreter to execute blocks in a thread, it needs to keep track of
+	 various pieces of data specific to a single execution of a block stack (the same custom
+	 block can be executed by multiple threads, and the same block stack can be executed by
+	 multiple clones). These are contained in a ThreadContext. See types/thread.h to see
+	 exactly what these pieces of data are.
+
+	 The interpreter also needs to know what sprite ("sprite" includes clones and the stage)
+	 the blocks are being run under, so properties, such as x and y positions and variables,
+	 can be made to the proper sprite. These properties are not specific to a single
+	 execution of a block stack, unlike the data that a ThreadContext stores. Instead,
+	 properties of one sprite modifiable by the interpreter are contained in a SpriteContext.
+
+	 Finally, a ThreadContext and a reference to its matching SpriteContext are stored in a
+	 ThreadLink. This makes it easy for the runtime to keep them associated when passing
+	 around the full context needed for a thread, without storing a reference to the
+	 SpriteContext in the ThreadContext itself.
+
+	 ThreadLinks also serve another purpose than giving ThreadContexts a way to
+	 reference their matching SpriteContext, which could be done by the ThreadContext
+	 itself. ThreadLinks are links in for creating linked lists of threads. This way,
+	 ThreadLinks can be stored however by another part of the runtime, and all that needs to
+	 be done to add them to the list of running threads is to change a couple of pointers.
+
+	 It is useful to make it easy to find all of the threads for one sprite, so ThreadLinks
+	 that share the same SpriteContext are all contained in an array. The SpriteContext
+	 contains a reference to this array. They can easily be iterated over, and they can
+	 be easily copied in order to make the threads for a newly created clone.
+
+	 Starting threads requires knowing where the ThreadLink for the thread is in memory. So
+	 that the runtime doesn't have to search each time the threads for a certain hat block
+	 need to be started, for each type of hat block a collection of references to the threads
+	 they start are created in the loading stage and added to/removed from by making/
+	 destroying clones. In the case of green flag scripts and stage-specific hats, however,
+	 these collections can simply be constant-sized arrays, because they will never need to
+	 be modified by the runtime.
+**/
+
+ThreadContext createThreadContext(const Block *const block) {
+	ThreadContext new = {
+		malloc(16*sizeof(Value)),
+		block,
+		NULL,
+		NULL,
+		0,
+		{malloc(16*sizeof(union Counter)), malloc(16*sizeof(Block *)), 0},
+	};
+	dynarray_new(new.nextStacks, sizeof(Block*));
+	return new;
+}
+
+void freeThreadContext(const ThreadContext context) {
+	free(context.stack);
+	dynarray_free(context.nextStacks);
+	free(context.counters.counters);
+	free(context.counters.owners);
+}
+
+void startThread(ThreadLink *const link) {
+	link->thread.nextBlock = link->thread.startingBlock;
+	link->next = runningThreads.next; // link the given to the first item in the list of running threads
+	runningThreads.next = link; // add it to the list of running threads
+}
+
+static void stopAllThreads(void) {
+	ThreadLink *current = &runningThreads,
+		*next;
+	while(current != NULL) {
+		next = current->next;
+		current->next = NULL;
+		current = next;
+	}
+}
+
+static ThreadLink *const *greenFlagThreads;
+static uint16 nGreenFlagThreads;
+
+void setGreenFlagThreads(ThreadLink *const *const threads, const uint16 nThreads) {
+	greenFlagThreads = threads;
+	nGreenFlagThreads = nThreads;
+}
+
+void freeGreenFlagThreads(void) {
+	free((void*)greenFlagThreads);
+}
+
+void restartGreenFlagThreads(void) {
+	for(uint16 i = 0; i < nGreenFlagThreads; ++i) {
+		startThread(greenFlagThreads[i]);
+	}
 }
 
 /**
 	 Interpreter
 
-	 This part is extremely similar to Interpreter.as in scratch-flash.
+	The interpreter is still simple like in the Flash version.
+
+	It looks up the opcode string of a block in a dictionary (hashtable	specifically),
+	getting a function pointer, and calls that function, which is called a block
+	function (primitive in scratch-flash). The function accomplishes what the block is
+	supposed to do, then returns the a pointer to the next block in the stack, or NULL if it
+	is the end of the stack.
+
+	Unlike the Flash version, Scratch blocks are evaluated backwards, so that recursion
+	is done by the interpreter, not the block functions themselves. This also means that the
+	interpreter has to maintain its own stack of evaluated arguments, rather than relying
+	on recursion.
+
+	Also unlike the Flash version, control blocks aren't that special. They are treated like
+	any other block, and have a block function just like any other block.
 **/
 
 /** Include the runtime library and hash value table **/
@@ -171,51 +252,8 @@ static const Block* interpret(const Block block[], Value stack[], Value *const r
 		++blockPos;
 	} while(next.level >= level);
 	// if we have exited the loop, some kind of error occured
-	puts("ERROR OCCURED WHILE EVALUTAING");
+	puts("[ERROR]Interpreter exited loop because next.level < level!");
 	return NULL;
-}
-
-/** Thread Control **/
-
-#define stopThread(context) {context->nextBlock = NULL;}
-
-ThreadContext createThreadContext(SpriteContext *const spriteContext, const Block *const block) {
-	ThreadContext new = {
-		malloc(16*sizeof(Value)),
-		block,
-		NULL,
-		0,
-		{malloc(16*sizeof(union Counter)), malloc(16*sizeof(Block *)), 0},
-		spriteContext
-	};
-	dynarray_new(new.nextStacks, sizeof(Block*));
-	return new;
-}
-
-void freeThreadContext(const ThreadContext context) {
-	free(context.stack);
-	dynarray_free(context.nextStacks);
-	free(context.counters.counters);
-	free(context.counters.owners);
-}
-
-void startThread(ThreadContext *const context) {
-	ThreadContextList *new = malloc(sizeof(ThreadContextList)); // allocate new list item
-	new->context = context; // initialize it
-	new->next = contexts.next; // link it to the first item in the list
-	contexts.next = new; // set it to the first item
-}
-
-static void stopAllThreads(void) {
-	ThreadContextList *current = contexts.next,
-		*last = current;
-	while(current != NULL) {
-		stopThread(current->context);
-		last = current;
-		current = current->next;
-		free(last);
-	}
-	contexts.next = NULL;
 }
 
 /* Steps the active thread until a yield point is reached or there are no more blocks.
@@ -225,14 +263,14 @@ static bool stepActiveThread(void) {
 	doYield = false;
 	while(!doYield) {
 		newTime = clock();
-		dtime = (float)newTime - activeContext->lastTime;
-		activeContext->lastTime = newTime;
+		dtime = (float)newTime - activeThread->lastTime;
+		activeThread->lastTime = newTime;
 
-		activeContext->nextBlock = interpret(activeContext->nextBlock, activeContext->stack, NULL, 1);
+		activeThread->nextBlock = interpret(activeThread->nextBlock, activeThread->stack, NULL, 1);
 		strpool_empty(); // free strings allocated to during evaluation
 
-		while(activeContext->nextBlock == NULL) {
-			if(dynarray_len(activeContext->nextStacks) != 0)
+		while(activeThread->nextBlock == NULL) {
+			if(dynarray_len(activeThread->nextStacks) != 0)
 				popStackFrame();
 			else
 				return true;
@@ -243,58 +281,34 @@ static bool stepActiveThread(void) {
 
 bool stepThreads(void) {
 	doRedraw = false;
-	ThreadContextList *last = &contexts;
-	ThreadContextList *current = contexts.next;
+	ThreadLink *last = &runningThreads;
+	ThreadLink *current = runningThreads.next;
 	clock_t startTime = clock(),
 		currentTime = startTime;
 	do {
 		// step each thread
 		while(current != NULL) {
 			printf("--thread\n");
-			activeContext = current->context; // set the active context
+			activeThread = &current->thread; // set the active context
+			activeSprite = current->sprite;
+
 			// step the thread
 			if(stepActiveThread()) { // if the thread should be killed
-				current = current->next; // advance to the next context
-				free(last->next); // free the context of the stopped thread
-				last->next = current; // make linked skip over freed context
+				if(runningThreads.next == NULL) // if all threads were killed
+					return false;
+				else {
+					current = current->next; // advance to the next context
+					last->next->next = NULL; // break link at stopped thread
+					last->next = current; // make link between thread before and thread after stopped thread
+				}
 			}
 			else {
 				last = current; // record the current context
 				current = current->next; // advance to the next context
 			}
 		}
-		// get the current time, check if a redraw needs to be done, and repeat
+		// get the current time, check if a redraw needs to be done, and repeat TODO
 		currentTime = clock();
 	} while(currentTime - startTime < workTime && doRedraw == false);
 	return false;
-}
-
-// an array of thread contexts that should be used to start new threads when the green flag is clicked
-static ThreadContext *contextsForGreenFlag;
-// an array to the first blocks after the green flag hats
-static const Block **stacksForGreenFlag;
-static uint16 nContextsForGreenFlag;
-
-void setContextsForGreenFlags(ThreadContext *const threadContexts, uint16 nContexts) {
-	contextsForGreenFlag = threadContexts;
-	nContextsForGreenFlag = nContexts;
-	stacksForGreenFlag = malloc(sizeof(Block*)*nContextsForGreenFlag);
-	if(stacksForGreenFlag == NULL)
-		printf("[FATAL]Out of memory\n\tCould not allocate array of pointers to green flag scripts.\n");
-	for(uint16 i = 0; i < nContextsForGreenFlag; ++i) {
-		stacksForGreenFlag[i] = contextsForGreenFlag[i].nextBlock;
-	}
-}
-
-void freeContextsForGreenFlagArray(void) {
-	free(contextsForGreenFlag);
-	free(stacksForGreenFlag);
-}
-
-void restartThreadsForGreenFlag(void) {
-	for(uint16 i = 0; i < nContextsForGreenFlag; ++i) {
-		contextsForGreenFlag[i].nextBlock = stacksForGreenFlag[i];
-		contextsForGreenFlag[i].counters.slotsUsed = 0;
-		startThread(contextsForGreenFlag+i); // don't worry about it already being started, because all threads should have been stopped before this function was called
-	}
 }
