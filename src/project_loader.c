@@ -540,7 +540,7 @@ static ThreadLink* parseScripts(SpriteContext *sprite) {
 	ThreadLink *threadsFinalized;
 	dynarray_finalize(threads, (void**)&threadsFinalized);
 
-	procedureMphf = generateMphf((char**)procedureNames->d, dynarray_len(procedures), CMPH_FCH);
+	procedureMphf = generateMphf((char**)procedureNames->d, dynarray_len(procedures), CMPH_CHD);
 	procedureHashTable = malloc(dynarray_len(procedures) * sizeof(Block*));
 	nProcedureArgsHashTable = malloc(dynarray_len(procedures) * sizeof(uint16));
 	for(unsigned i = 0; i < dynarray_len(procedures); ++i) {
