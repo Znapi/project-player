@@ -1,35 +1,14 @@
 #pragma once
 
-#include "../ut/uthash.h" // don't worry about unused functionality, it is all macros, so it only affects the pre-processing stage
-
-struct Variable {
-	struct Value value;
-	const char *name;
-	UT_hash_handle hh;
-};
-typedef struct Variable Variable;
-
-struct ListElement {
-	struct Value value;
-	struct ListElement *next;
-};
-typedef struct ListElement ListElement;
-
-struct List {
-	struct ListElement *first; // a linked list of list elements
-	struct ListElement *last;
-	uint32 length;
-	const char *name;
-	UT_hash_handle hh;
-};
-typedef struct List List;
-// TODO: switch lists to dynarrays
-
 struct SpriteContext {
 	struct ThreadLink *threads; // array of thread contexts
+	uint16 nThreads;
 
 	struct Variable *variables; // a hash table of Scratch variables
 	struct List *lists; // a hash table of Scratch lists
+
+	struct Block **procedures; // table of pointers to procedures to be accessed with hashes
+	cmph_t *proceduresMphf;
 
 	int16 xpos, ypos, direction;
 	uint16 layer, costumeNumber, size,

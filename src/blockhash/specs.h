@@ -236,7 +236,7 @@ const struct BlockSpec specs[] = {
 
 	// Custom blocks
 	{"procDef", "bf_noop", h},
-	{"call", "bf_noop", s},
+	{"call", "bf_call", s},
 	{"getParam", "bf_noop", r},
 
 	// Scratch 2.0 alpha and beta blocks obselete in complete release

@@ -1,6 +1,6 @@
 /**
 	Runtime Library
-			runtime_lib.c
+		runtime_lib.c
 
 	A library of functions, one for each Scratch block.
 	This is a port of all of the block primitives in scratch-flash/primitives/, with some
@@ -18,7 +18,9 @@
 
 #define BF(name) static Block* bf_##name(const Block *const block, Value *const reportSlot, const Value arg[])
 
-static Block* bf_noop(const Block *const block, Value *const reportSlot, const Value arg[]) {puts("NOOP CALLED!"); return block->p.next;}
+BF(noop) { puts("NOOP CALLED!"); return block->p.next; }
+
+/* Operators */
 
 BF(add) {
 	double arg0 = toFloating(arg+0);
@@ -131,7 +133,6 @@ BF(logical_not) {
 	return NULL;
 }
 
-// bad, but functional, random number generation
 BF(generate_random) {
 	double low = toFloating(arg+0), high = toFloating(arg+1);
 	if(low > high) { // if the bounds are out of order
@@ -258,36 +259,37 @@ BF(get_character) {
 	return NULL;
 }
 
-// Control
+/* Control */
+
 BF(do_if) {
 	if(toBoolean(arg+0)) {
 		// go inside C of if block
-		pushStackFrame(block->p.subStacks[1]);
-		return block->p.subStacks[0]; // advance thread to stub block inside of if block
+		enterSubstack(block->p.substacks[1]);
+		return block->p.substacks[0]; // advance thread to stub block inside of if block
 	}
 	else {
 		// skip past C if block
-		return block->p.subStacks[1]; // advance thread to stub block at end of if block
+		return block->p.substacks[1]; // advance thread to stub block at end of if block
 	}
 }
 
 BF(do_if_else) {
-	pushStackFrame(block->p.subStacks[2]);
+	enterSubstack(block->p.substacks[2]);
 	if(toBoolean(arg+0))
-		return block->p.subStacks[0];
+		return block->p.substacks[0];
 	else
-		return block->p.subStacks[1];
+		return block->p.substacks[1];
 }
 
 BF(do_until) {
 	if(toBoolean(arg+0)) {
 		// exit/skip loop
-		return block->p.subStacks[1];
+		return block->p.substacks[1];
 	}
 	else {
 		// enter loop
-		pushStackFrame(activeThread->nextBlock); // return to this block after substack inside loop is finished
-		return block->p.subStacks[0];
+		enterSubstack(activeThread->frame.nextBlock); // return to this block after substack inside loop is finished
+		return block->p.substacks[0];
 	}
 }
 
@@ -304,12 +306,12 @@ BF(do_repeat) {
 
 	if(ugetCounter() != 0) {
 		usetCounter(ugetCounter()-1);
-		pushStackFrame(activeThread->nextBlock);
-		return block->p.subStacks[0];
+		enterSubstack(activeThread->frame.nextBlock);
+		return block->p.substacks[0];
 	}
 	else {
 		freeCounter();
-		return block->p.subStacks[1];
+		return block->p.substacks[1];
 	}
 }
 
@@ -328,8 +330,8 @@ BF(do_wait) {
 }
 
 BF(do_forever) {
-	pushStackFrame(block);
-	return block->p.subStacks[0];
+	enterSubstack(block);
+	return block->p.substacks[0];
 }
 
 BF(stop_scripts) {
@@ -352,8 +354,9 @@ BF(stop_scripts) {
 	return NULL; // stop this script
 }
 
-BF(get_variable) {
+/* Data */
 
+BF(get_variable) {
 	char *name;
 	toString(arg+0, &name);
 	*reportSlot = getVariable(&activeSprite->variables, name);
@@ -534,6 +537,17 @@ BF(list_length) {
 	reportSlot->data.floating = (double)getListPtr(&activeSprite->lists, name)->length;
 	return NULL;
 }
+
+/* Custom Blocks (More Blocks, but no extensions) */
+
+BF(call) {
+	char *procName;
+	uint32 procNameLen = toString(arg+0, &procName);
+	enterProcedure(block->p.next);
+	return lookupProcedure(procName, procNameLen);
+}
+
+/* Looks */
 
 BF(say) {
 	char *msg;

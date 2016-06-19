@@ -8,13 +8,17 @@ union Counter {
 	float f;
 };
 
+struct BlockStackFrame {
+	uint16 level; // level of nesting in script, not total thread
+	const struct Block *nextBlock;
+};
+
 struct ThreadContext {
 	struct Value *stack; // A pointer to this thread's stack / argument pool TODO: make this a dynarray
 
-	const struct Block *const startingBlock;
-	const struct Block *nextBlock;
-
-	dynarray *nextStacks; // TODO: embed the dynarray into ThreadContext (change declaration to `dynarray nextStacks`, don't use pointer)
+	const struct Block *const topBlock;
+	struct BlockStackFrame frame;
+	dynarray *blockStack; // dynarray of BlockStackFrames TODO: embed dynarray into ThreadContext
 
 	clock_t lastTime;
 
@@ -24,8 +28,8 @@ struct ThreadContext {
 		ufastest slotsUsed;
 	} counters;
 
-	//struct Variable **parameters; // custom block parameters
-	//struct Variable **parametersOfPrevStacks; // if only Scratch had a proper scoping system...can't wait to see how Scratch 3 will handle it
+	struct Value *parameters; // custom block parameters
+	dynarray *parametersStack; // dynarray of Values.
 };
 typedef struct ThreadContext ThreadContext;
 

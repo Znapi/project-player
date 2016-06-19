@@ -1,6 +1,6 @@
 CC=cc
 
-WARNING_FLAGS=-Wall
+WARNING_FLAGS=-Wall -Wno-visibility
 ## fine tuned warnings
 #-Waddress -Warray-bounds -Wchar-subscripts -Wenum-compare -Wimplicit-int -Wimplicit-function-declaration -Wformat -Wmain -Wmissing-braces -Wnonnull -Wopenmp-clauses -Wparentheses -Wpointer-sign -Wreorder -Wreturn-type -Wsequence-point -Wstrict-aliasing -Wstrict-overflow=1 -Wswitch -Wtautological-compare -Wtrigraphs -Wuninitialized -Wunknown-pragmas -Wunused-label -Wunused-value -Wunused-variable -Wvolatile-register-var -Wconsumed -Wempty-body -Wignored-qualifiers -Wmissing-field-initializers -Wout-of-line-declaration -Wtype-limits -Wshift-sign-overflow
 ## excluded warnings
@@ -15,27 +15,26 @@ CFLAGS=-DHASH_FUNCTION=HASH_OAT $(WARNING_FLAGS) $(GLOBAL_FLAGS) $(INCLUDE_PATHS
 
 ### building the executables
 
-EXECUTABLES=phtg player json_parser
+EXECUTABLES=phtg player graphics_demo
 
-.PHONY: all
-all: $(EXECUTABLES)
-
-PLAYER_MODS=main runtime variables value strpool
-player: $(addprefix obj/, $(addsuffix .o, $(PLAYER_MODS)))
-	$(CC) -o $@ $^ $(LIBS) -framework OpenGL -framework SDL2 -framework Cocoa $(GLOBAL_FLAGS)
-
-JSON_PARSER_MODS=json_parser runtime variables value strpool jsmn
-json_parser: $(addprefix obj/, $(addsuffix .o, $(JSON_PARSER_MODS))) blockops.mphf
+PLAYER_MODS=main project_loader runtime variables value strpool jsmn
+player: $(addprefix obj/, $(addsuffix .o, $(PLAYER_MODS))) blockops.mphf
 	$(CC) -o $@ $(filter-out %.mphf, $^) $(LIBS) $(GLOBAL_FLAGS)
+
+GRAPHICS_MODS=graphics runtime variables value strpool
+graphics_demo: $(addprefix obj/, $(addsuffix .o, $(GRAPHICS_MODS)))
+	$(CC) -o $@ $^ $(LIBS) -framework OpenGL -framework SDL2 -framework Cocoa $(GLOBAL_FLAGS)
 
 PHTG_MODS=phtg
 phtg: $(addprefix obj/, $(addsuffix .o, $(PHTG_MODS)))
 	$(CC) -o $@ $^ -lcmph
 
 TEST_RUNTIME_MODS=runtime variables value strpool
-test_runtime.exe: $(addprefix obj/, $(addsuffix .o, $(TEST_RUNTIME_MODS)))
+test_runtime: $(addprefix obj/, $(addsuffix .o, $(TEST_RUNTIME_MODS)))
 	$(CC) -o $@ $^ -lcheck $(GLOBAL_FLAGS)
 
+.PHONY: all
+all: $(EXECUTABLES)
 
 obj/%.d: src/%.c
 	@set -e; rm -f $@; \
@@ -49,10 +48,10 @@ obj/%.d: src/*/%.c
 	sed 's,\($*\)\.o[ :]*,\1.o $@ : ,g' < $@.$$$$ > $@; \
 	rm -f $@.$$$$
 
-obj/runtime.d obj/json_parser.d: src/runtime.c src/blockhash/opstable.c src/blockhash/typestable.c
+obj/runtime.d obj/project_loader.d: src/runtime.c src/blockhash/opstable.c src/blockhash/typestable.c
 
 DEPS=$(addprefix obj/, $(addsuffix .d, \
-	$(sort $(PLAYER_MODS) $(JSON_PARSER_MODS) $(PHTG_MODS) $(TEST_RUNTIME_MODS))))
+	$(sort $(PLAYER_MODS) $(GRAPHICS_MODS) $(PHTG_MODS) $(TEST_RUNTIME_MODS))))
 -include $(DEPS)
 
 obj/%.o: src/%.c obj/%.d

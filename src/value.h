@@ -1,5 +1,7 @@
 #pragma once
 
+#define value_free(v) { if(v.type == STRING) free(v.data.string); }
+
 // attempted conversions
 extern bool tryToFloating(const Value *const value, double *ret);
 

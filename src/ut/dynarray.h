@@ -12,7 +12,8 @@
 				the size variable moved into the dynarray structure
 			* Changing most procedures from macros to inlining functions.
 			* Adding dynarray_front_unchecked, dynarray_back_unchecked,
-				dynarray_ensure_size, dynarray_extract, and dynarray_finalize.
+				dynarray_ensure_size, dynarray_extract, dynarray_finalize,
+				and dynarray_pop_back_n.
 **/
 
 /*
@@ -51,7 +52,7 @@
 #define oom() exit(-1)
 #endif
 
-typedef struct {
+typedef struct dynarray {
 	unsigned i,n; // i: index of next available slot, n: num slots
 	size_t sz; // size of each element/slot
 	char *d; // n slots of size sz
@@ -127,6 +128,7 @@ static inline void dynarray_push_back(dynarray *a, void *p) {
 }
 
 static inline void dynarray_pop_back(dynarray *a) { a->i--; }
+static inline void dynarray_pop_back_n(dynarray *a, unsigned n) { a->i -= n; }
 
 static inline void dynarray_extend_back(dynarray *a) {
 	dynarray_reserve(a, 1);

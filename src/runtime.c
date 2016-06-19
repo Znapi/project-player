@@ -1,6 +1,6 @@
 /**
 	Runtime
-			runtime.c
+		runtime.c
 
 	TODO description
 **/
@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <time.h>
+#include <cmph.h>
 
 #include "ut/dynarray.h"
 
@@ -15,6 +16,7 @@
 #include "types/value.h"
 #include "types/block.h"
 #include "types/thread.h"
+#include "types/variables.h"
 #include "types/sprite.h"
 
 #include "runtime.h"
@@ -37,11 +39,11 @@ static const clock_t workTime = (clock_t).75f * 1000 / 30; // work only for 75% 
 static bool doRedraw, doYield;
 
 /**
-	 Counters
+	Counters
 
-	 Counters allow a block functions to store a float or integer between invocations
-	 (e.g. bf_repeat counts iterations).
-	 This allows control structure blocks to be treated like any other block.
+	Counters allow a block functions to store a float or integer between invocations
+	(e.g. bf_repeat counts iterations).
+	This allows control structure blocks to be treated like any other block.
 **/
 
 /* alloc is not quite the right term, but I couldn't think of a better one */
@@ -85,87 +87,116 @@ static inline void fsetCounter(const float newValue) {
 }
 
 /**
-	 Stack Frame Handling
+	Stack Frame Handling
 
-	 Originally, the plan was to pre-calculate stack jumps during the parsing stage, but that
-	 required lots of tracking of stacks during the parsing that I decided to ditch for just
-	 using stack frames. Stack frames also allow for local variables...if they ever come
-	 about. Maybe after I have a working version I will add pre-calculating stack jumps again.
+	Originally, the plan was to pre-calculate stack jumps during the parsing stage, but that
+	required lots of tracking of stacks during the parsing that I decided to ditch for just
+	using stack frames. Stack frames also allow for local variables...if they ever come
+	about. Maybe after I have a working version I will add pre-calculating stack jumps again.
 **/
 
-static inline void pushStackFrame(const Block *nextStack) {
-	dynarray_push_back(activeThread->nextStacks, &nextStack);
+/* this procedure should not be used by anything other than enterSubstack/Procedure */
+static inline void pushStackFrame(const Block *const returnStack) {
+	activeThread->frame.nextBlock = returnStack;
+	dynarray_push_back(activeThread->blockStack, &activeThread->frame);
 }
 
+/* this procedure should only be used by the interpreter */
 static inline void popStackFrame(void) {
-	activeThread->nextBlock = *((Block**)dynarray_back_unchecked(activeThread->nextStacks)); // `unsafe` means don't check if there even is a back
-	dynarray_pop_back(activeThread->nextStacks);
+	activeThread->frame = *((struct BlockStackFrame*)dynarray_back_unchecked(activeThread->blockStack));
+	dynarray_pop_back(activeThread->blockStack);
+}
+
+/* convenience procedures for block functions */
+static void enterSubstack(const Block *const returnStack) {
+	pushStackFrame(returnStack);
+	++activeThread->frame.level;
+}
+
+static void enterProcedure(const Block *const returnStack) {
+	pushStackFrame(returnStack);
+	activeThread->frame.level = 0;
 }
 
 /**
-	 Thread Control
+	Thread Control
 
-	 This part also resembles Interpreter.as in scratch-flash.
+	This part also resembles Interpreter.as in scratch-flash.
 
-	 In order for the interpreter to execute blocks in a thread, it needs to keep track of
-	 various pieces of data specific to a single execution of a block stack (the same custom
-	 block can be executed by multiple threads, and the same block stack can be executed by
-	 multiple clones). These are contained in a ThreadContext. See types/thread.h to see
-	 exactly what these pieces of data are.
+	In order for the interpreter to execute blocks in a thread, it needs to keep track of
+	various pieces of data specific to a single execution of a block stack (the same custom
+	block can be executed by multiple threads, and the same block stack can be executed by
+	multiple clones). These are contained in a ThreadContext. See types/thread.h to see
+	exactly what these pieces of data are.
 
-	 The interpreter also needs to know what sprite ("sprite" includes clones and the stage)
-	 the blocks are being run under, so properties, such as x and y positions and variables,
-	 can be made to the proper sprite. These properties are not specific to a single
-	 execution of a block stack, unlike the data that a ThreadContext stores. Instead,
-	 properties of one sprite modifiable by the interpreter are contained in a SpriteContext.
+	The interpreter also needs to know what sprite ("sprite" includes clones and the stage)
+	the blocks are being run under, so properties, such as x and y positions and variables,
+	can be made to the proper sprite. These properties are not specific to a single
+	execution of a block stack, unlike the data that a ThreadContext stores. Instead,
+	properties of one sprite modifiable by the interpreter are contained in a SpriteContext.
 
-	 Finally, a ThreadContext and a reference to its matching SpriteContext are stored in a
-	 ThreadLink. This makes it easy for the runtime to keep them associated when passing
-	 around the full context needed for a thread, without storing a reference to the
-	 SpriteContext in the ThreadContext itself.
+	Finally, a ThreadContext and a reference to its matching SpriteContext are stored in a
+	ThreadLink. This makes it easy for the runtime to keep them associated when passing
+	around the full context needed for a thread, without storing a reference to the
+	SpriteContext in the ThreadContext itself.
 
-	 ThreadLinks also serve another purpose than giving ThreadContexts a way to
-	 reference their matching SpriteContext, which could be done by the ThreadContext
-	 itself. ThreadLinks are links in for creating linked lists of threads. This way,
-	 ThreadLinks can be stored however by another part of the runtime, and all that needs to
-	 be done to add them to the list of running threads is to change a couple of pointers.
+	ThreadLinks also serve another purpose than giving ThreadContexts a way to
+	reference their matching SpriteContext, which could be done by the ThreadContext
+	itself. ThreadLinks are links in for creating linked lists of threads. This way,
+	ThreadLinks can be stored however by another part of the runtime, and all that needs to
+	be done to add them to the list of running threads is to change a couple of pointers.
 
-	 It is useful to make it easy to find all of the threads for one sprite, so ThreadLinks
-	 that share the same SpriteContext are all contained in an array. The SpriteContext
-	 contains a reference to this array. They can easily be iterated over, and they can
-	 be easily copied in order to make the threads for a newly created clone.
+	It is useful to make it easy to find all of the threads for one sprite, so ThreadLinks
+	that share the same SpriteContext are all contained in an array. The SpriteContext
+	contains a reference to this array. They can easily be iterated over, and they can
+	be easily copied in order to make the threads for a newly created clone.
 
-	 Starting threads requires knowing where the ThreadLink for the thread is in memory. So
-	 that the runtime doesn't have to search each time the threads for a certain hat block
-	 need to be started, for each type of hat block a collection of references to the threads
-	 they start are created in the loading stage and added to/removed from by making/
-	 destroying clones. In the case of green flag scripts and stage-specific hats, however,
-	 these collections can simply be constant-sized arrays, because they will never need to
-	 be modified by the runtime.
+	Starting threads requires knowing where the ThreadLink for the thread is in memory. So
+	that the runtime doesn't have to search each time the threads for a certain hat block
+	need to be started, for each type of hat block a collection of references to the threads
+	they start are created in the loading stage and added to/removed from by making/
+	destroying clones. In the case of green flag scripts and stage-specific hats, however,
+	these collections can simply be constant-sized arrays, because they will never need to
+	be modified by the runtime.
 **/
 
 ThreadContext createThreadContext(const Block *const block) {
 	ThreadContext new = {
 		malloc(16*sizeof(Value)),
+
 		block,
+		{0, NULL},
 		NULL,
-		NULL,
+
 		0,
 		{malloc(16*sizeof(union Counter)), malloc(16*sizeof(Block *)), 0},
+		NULL,
+		NULL
 	};
-	dynarray_new(new.nextStacks, sizeof(Block*));
+	dynarray_new(new.blockStack, sizeof(struct BlockStackFrame));
+	dynarray_new(new.parametersStack, sizeof(Value*));
 	return new;
 }
 
-void freeThreadContext(const ThreadContext context) {
-	free(context.stack);
-	dynarray_free(context.nextStacks);
-	free(context.counters.counters);
-	free(context.counters.owners);
+void freeThreadContext(const ThreadContext *const context) {
+	free(context->stack);
+	dynarray_free(context->blockStack);
+	dynarray_free(context->parametersStack);
+	free(context->counters.counters);
+	free(context->counters.owners);
 }
 
-void startThread(ThreadLink *const link) {
-	link->thread.nextBlock = link->thread.startingBlock;
+static void resetThreadContext(ThreadContext *const context) {
+	context->frame.level = 0;
+	context->frame.nextBlock = NULL;
+	dynarray_clear(context->blockStack);
+	context->counters.slotsUsed = 0;
+	dynarray_clear(context->parametersStack);
+}
+
+static void startThread(ThreadLink *const link) {
+	resetThreadContext(&link->thread);
+	link->thread.frame.nextBlock = link->thread.topBlock;
 	link->next = runningThreads.next; // link the given to the first item in the list of running threads
 	runningThreads.next = link; // add it to the list of running threads
 }
@@ -199,7 +230,19 @@ void restartGreenFlagThreads(void) {
 }
 
 /**
-	 Interpreter
+	Procedure Lookups
+
+	Custom block procedures are stored as scripts just like all the other scripts. A hash
+	table is used to lookup the location of the scripts in memory. The procedure name is
+	hashed, and a pointer to the top block of the procedure is found.
+**/
+
+static Block* lookupProcedure(const char *const name, uint32 nameLen) {
+	return activeSprite->procedures[cmph_search(activeSprite->proceduresMphf, name, nameLen)];
+}
+
+/**
+	Interpreter
 
 	The interpreter is still simple like in the Flash version.
 
@@ -266,11 +309,11 @@ static bool stepActiveThread(void) {
 		dtime = (float)newTime - activeThread->lastTime;
 		activeThread->lastTime = newTime;
 
-		activeThread->nextBlock = interpret(activeThread->nextBlock, activeThread->stack, NULL, 1);
+		activeThread->frame.nextBlock = interpret(activeThread->frame.nextBlock, activeThread->stack, NULL, 1);
 		strpool_empty(); // free strings allocated to during evaluation
 
-		while(activeThread->nextBlock == NULL) {
-			if(dynarray_len(activeThread->nextStacks) != 0)
+		while(activeThread->frame.nextBlock == NULL) {
+			if(dynarray_len(activeThread->blockStack) != 0)
 				popStackFrame();
 			else
 				return true;
