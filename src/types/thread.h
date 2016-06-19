@@ -28,8 +28,9 @@ struct ThreadContext {
 		ufastest slotsUsed;
 	} counters;
 
-	struct Value *parameters; // custom block parameters
+	struct Value *parameters; // custom block parameters (just a pointer into the parametersStack)
 	dynarray *parametersStack; // dynarray of Values.
+	dynarray *nParametersStack; // dynarray of Values.
 };
 typedef struct ThreadContext ThreadContext;
 

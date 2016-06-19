@@ -542,9 +542,23 @@ BF(list_length) {
 
 BF(call) {
 	char *procName;
-	uint32 procNameLen = toString(arg+0, &procName);
+	uint32 i = toString(arg+0, &procName);
+	uint16 hash = getProcedureHash(procName, i);
+
+	i = activeSprite->nProcedureArgs[hash];
+	dynarray_push_back(activeThread->nParametersStack, &i);
+	++i;
+	for(uint16 j = 1; j < i; ++j)
+		dynarray_push_back(activeThread->parametersStack, (void*)(arg+j));
+	activeThread->parameters = (Value*)dynarray_eltptr(activeThread->parametersStack, dynarray_len(activeThread->parametersStack) - (i-1));
+
 	enterProcedure(block->p.next);
-	return lookupProcedure(procName, procNameLen);
+	return activeSprite->procedures[hash];
+}
+
+BF(getParam) {
+	*reportSlot = activeThread->parameters[arg[0].data.integer];
+	return NULL;
 }
 
 /* Looks */

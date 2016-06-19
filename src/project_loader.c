@@ -286,17 +286,48 @@ static inline uint32 tokchash(cmph_t *mphf) {
 
 #include "blockhash/typestable.c"
 
+static char **procedureParameters;
+static uint16 nParameters;
+
 /* Parses arguments to a block, using recursion when one of the arguments is another
 	 block. pos should point to the first argument, and is left pointing after the last
 	 token parsed. */
-static void parseBlockArgs(Block **const blocks, Value **const values, uint16 tokensToGo, const ubyte level) {
+static void parseBlockArgs(Block **const blocks, Value **const values, uint16 argsToGo, const ubyte level) {
 	Block *block = *blocks;
 	Value *value = *values;
-	if(tokensToGo == 0) return;
+	if(argsToGo == 0) return;
 	do {
 		if(TOKC.type == JSMN_ARRAY) { // if argument is a block
 			++pos; // advance to opstring
 			blockhash hash = tokchash_new(blockMphf); // hash opstring
+
+			if(tokceq("getParam")) { // if it is a procedure parameter
+				++pos; // advance to argument (param name)
+				parseString(gjson(TOKC), tokclen());
+				uint16 i;
+				for(i = 0; i < nParameters; ++i) {
+					if(strcmp(charBuffer->d, procedureParameters[i]) == 0)
+						break;
+				}
+				if(i == nParameters) {
+					puts("[WARNING]Could not match procedure parameter to one of the defined parameters.");
+					value->data.integer = 0;
+				}
+				else
+					value->data.integer = i;
+				value->type = FLOATING;
+				block->hash = noop_hash;
+				block->p.value = value;
+				block->level = level + 1;
+				++value;
+				++block;
+				block->hash = hash;
+				block->level = level;
+				++block;
+				++pos; // advance past argument
+				continue;
+			}
+
 			++pos; // advance to first argument
 			parseBlockArgs(&block, &value, tokens[pos - 2].size - 1, level+1); // parse the arguments
 			block->hash = hash;
@@ -318,7 +349,7 @@ static void parseBlockArgs(Block **const blocks, Value **const values, uint16 to
 		}
 		block->level = level;
 		++block;
-	} while(--tokensToGo != 0);
+	} while(--argsToGo != 0);
 	*blocks = block;
 	*values = value;
 }
@@ -397,6 +428,7 @@ static dynarray *greenFlagThreads;
 
 static cmph_t *procedureMphf;
 static Block **procedureHashTable;
+static uint16 *nProcedureArgsHashTable;
 
 static cmph_t* generateMphf(char **keys, const uint16 nKeys, CMPH_ALGO algorithm) {
 	cmph_io_adapter_t *keySource = cmph_io_vector_adapter(keys, nKeys);
@@ -418,8 +450,10 @@ static ThreadLink* parseScripts(SpriteContext *sprite) {
 
 	dynarray *procedureNames;
 	dynarray *procedures;
+	dynarray *nProcedureArgs;
 	dynarray_new(procedureNames, sizeof(char*));
 	dynarray_new(procedures, sizeof(Block*));
+	dynarray_new(nProcedureArgs, sizeof(uint16));
 
 	++pos; // advance to array of scripts
 	uint16 nScriptsToGo = TOKC.size;
@@ -444,7 +478,19 @@ static ThreadLink* parseScripts(SpriteContext *sprite) {
 			const char *label;
 			tokcext(label);
 			dynarray_push_back(procedureNames, (void*)&label);
-			--pos;
+			++pos; // advance to array of parameter declarations
+			nParameters = TOKC.size;
+			dynarray_push_back(nProcedureArgs, &nParameters);
+			if(nParameters != 0) {
+				procedureParameters = malloc(nParameters*sizeof(char*));
+				for(uint16 i = 0; i < nParameters; ++i) {
+					++pos;
+					tokcext(procedureParameters[i]);
+				}
+			}
+			++pos; // advance to array of default arguments
+			skip();
+			++pos; // advance past withoutScreenRefresh boolean
 		}
 		else { // it is not a hat
 			pos -= 4; // go back to script ([xpos, ypos, [blocks...]])
@@ -481,6 +527,11 @@ static ThreadLink* parseScripts(SpriteContext *sprite) {
 			break;
 		case PROCEDURE:
 			dynarray_push_back(procedures, &blockBuffer);
+			if(nParameters != 0) {
+				while(nParameters != 0)
+					free(procedureParameters[--nParameters]);
+				free(procedureParameters);
+			}
 			break;
 		}
 	} while(--nScriptsToGo != 0);
@@ -489,19 +540,22 @@ static ThreadLink* parseScripts(SpriteContext *sprite) {
 	ThreadLink *threadsFinalized;
 	dynarray_finalize(threads, (void**)&threadsFinalized);
 
-	procedureMphf = generateMphf((char**)procedureNames->d, dynarray_len(procedureNames), CMPH_FCH);
-	procedureHashTable = malloc(dynarray_len(procedureNames) * sizeof(Block*));
-	for(unsigned i = 0; i < dynarray_len(procedureNames); ++i) {
+	procedureMphf = generateMphf((char**)procedureNames->d, dynarray_len(procedures), CMPH_FCH);
+	procedureHashTable = malloc(dynarray_len(procedures) * sizeof(Block*));
+	nProcedureArgsHashTable = malloc(dynarray_len(procedures) * sizeof(uint16));
+	for(unsigned i = 0; i < dynarray_len(procedures); ++i) {
 		const char *const key = *((char**)dynarray_eltptr(procedureNames, i));
 		uint32 phash = hash(key, strlen(key), procedureMphf);
 		procedureHashTable[phash] = *((Block**)dynarray_eltptr(procedures, i));
+		nProcedureArgsHashTable[phash] = *((uint16*)dynarray_eltptr(nProcedureArgs, i));
 	}
-	
+
 	// clean up
 	for(unsigned i = dynarray_len(procedureNames); i != 0;)
 		free(((char**)procedureNames->d)[--i]);
 	dynarray_free(procedureNames);
 	dynarray_free(procedures);
+	dynarray_free(nProcedureArgs);
 	return threadsFinalized;
 }
 
@@ -520,6 +574,7 @@ static bool attemptToParseSpriteProperty(SpriteContext *sprite) {
 		puts("scripts");
 		sprite->threads = parseScripts(sprite);
 		sprite->procedures = procedureHashTable;
+		sprite->nProcedureArgs = nProcedureArgsHashTable;
 		sprite->proceduresMphf = procedureMphf;
 		return true;
 	}

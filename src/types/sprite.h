@@ -7,7 +7,8 @@ struct SpriteContext {
 	struct Variable *variables; // a hash table of Scratch variables
 	struct List *lists; // a hash table of Scratch lists
 
-	struct Block **procedures; // table of pointers to procedures to be accessed with hashes
+	struct Block *const *procedures; // table of pointers to procedures to be accessed with hashes
+	const uint16 *nProcedureArgs;
 	cmph_t *proceduresMphf;
 
 	int16 xpos, ypos, direction;

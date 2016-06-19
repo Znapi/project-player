@@ -103,6 +103,13 @@ static inline void pushStackFrame(const Block *const returnStack) {
 
 /* this procedure should only be used by the interpreter */
 static inline void popStackFrame(void) {
+	if(activeThread->frame.level == 0) { // if we are inside a procedure, need to pop parameters as well
+		dynarray_pop_back_n(activeThread->parametersStack, *(uint16*)dynarray_back(activeThread->nParametersStack));
+		dynarray_pop_back(activeThread->nParametersStack);
+		if(dynarray_len(activeThread->nParametersStack) != 0)
+			activeThread->parameters = (Value*)dynarray_eltptr(activeThread->parametersStack,
+																												 dynarray_len(activeThread->parametersStack) - *(uint16*)dynarray_back(activeThread->nParametersStack));
+	}
 	activeThread->frame = *((struct BlockStackFrame*)dynarray_back_unchecked(activeThread->blockStack));
 	dynarray_pop_back(activeThread->blockStack);
 }
@@ -169,12 +176,16 @@ ThreadContext createThreadContext(const Block *const block) {
 		NULL,
 
 		0,
+
 		{malloc(16*sizeof(union Counter)), malloc(16*sizeof(Block *)), 0},
+
 		NULL,
-		NULL
+		NULL,
+		NULL,
 	};
 	dynarray_new(new.blockStack, sizeof(struct BlockStackFrame));
-	dynarray_new(new.parametersStack, sizeof(Value*));
+	dynarray_new(new.parametersStack, sizeof(Value));
+	dynarray_new(new.nParametersStack, sizeof(uint16));
 	return new;
 }
 
@@ -182,6 +193,7 @@ void freeThreadContext(const ThreadContext *const context) {
 	free(context->stack);
 	dynarray_free(context->blockStack);
 	dynarray_free(context->parametersStack);
+	dynarray_free(context->nParametersStack);
 	free(context->counters.counters);
 	free(context->counters.owners);
 }
@@ -235,10 +247,14 @@ void restartGreenFlagThreads(void) {
 	Custom block procedures are stored as scripts just like all the other scripts. A hash
 	table is used to lookup the location of the scripts in memory. The procedure name is
 	hashed, and a pointer to the top block of the procedure is found.
+
+	All procedure arguments for a thread are stored in a dynamic array. The argument count
+	for each procedure is found in hash tables, and is kept so the right amount of arguments
+	are freed at the end of the procedure.
 **/
 
-static Block* lookupProcedure(const char *const name, uint32 nameLen) {
-	return activeSprite->procedures[cmph_search(activeSprite->proceduresMphf, name, nameLen)];
+static uint32 getProcedureHash(const char *const name, uint32 nameLen) {
+	return cmph_search(activeSprite->proceduresMphf, name, nameLen);
 }
 
 /**
