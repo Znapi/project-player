@@ -138,7 +138,7 @@ const struct BlockSpec specs[] = {
 	{"whenSensorGreaterThan", "bf_noop", h},
 
 	{"whenIReceive", "bf_noop", h},
-	{"broadcast:", "bf_noop", s},
+	{"broadcast:", "bf_broadcast", s},
 	{"doBroadcastAndWait", "bf_noop", s},
 
 	// Control

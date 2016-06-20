@@ -37,7 +37,7 @@ typedef struct ThreadContext ThreadContext;
 struct ThreadLink {
 	struct ThreadContext thread;
 	struct SpriteContext *sprite;
-	struct ThreadLink *next;
+	struct ThreadLink *next, *prev;
 };
 typedef struct ThreadLink ThreadLink;
 

@@ -8,3 +8,6 @@ extern bool stepThreads(void);
 extern void setGreenFlagThreads(struct ThreadLink *const *const threadContexts, const uint16 amount);
 extern void freeGreenFlagThreads(void);
 extern void restartGreenFlagThreads(void);
+
+extern void setBroadcastThreadPointers(cmph_t *const mphf, dynarray *const *const threads, const uint16 nThreads);
+extern void freeBroadcastThreadPointers(void);

@@ -2,6 +2,8 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <cmph.h>
+#include "ut/dynarray.h"
 
 #include "types/primitives.h"
 
@@ -50,7 +52,7 @@ int main(void) {
 	puts("starting");
 	restartGreenFlagThreads();
 	puts("running");
-	stepThreads();
+	while(stepThreads());
 	puts("done.");
 
 	while(nData != 0)

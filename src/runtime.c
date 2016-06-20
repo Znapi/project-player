@@ -32,7 +32,7 @@ static SpriteContext *activeSprite;
 static Variable *stageVariables;
 static List *stageLists;
 
-static ThreadLink runningThreads = {{0}, NULL, NULL}; // the first item of the list is a stub that points to the first real item
+static ThreadLink runningThreads = {{0}, NULL, NULL, NULL}; // the first item of the list is a stub that points to the first real item
 
 static clock_t dtime;
 static const clock_t workTime = (clock_t).75f * 1000 / 30; // work only for 75% of the alloted frame time. taken from Flash version.
@@ -209,7 +209,14 @@ static void resetThreadContext(ThreadContext *const context) {
 static void startThread(ThreadLink *const link) {
 	resetThreadContext(&link->thread);
 	link->thread.frame.nextBlock = link->thread.topBlock;
-	link->next = runningThreads.next; // link the given to the first item in the list of running threads
+	if(runningThreads.next == NULL) {
+		link->next = NULL;
+	}
+	else {
+		link->next = runningThreads.next; // link the given to the first item in the list of running threads
+		runningThreads.next->prev = link;
+	}
+	link->prev = &runningThreads;
 	runningThreads.next = link; // add it to the list of running threads
 }
 
@@ -218,7 +225,7 @@ static void stopAllThreads(void) {
 		*next;
 	while(current != NULL) {
 		next = current->next;
-		current->next = NULL;
+		current->next = current->prev =  NULL;
 		current = next;
 	}
 }
@@ -236,8 +243,35 @@ void freeGreenFlagThreads(void) {
 }
 
 void restartGreenFlagThreads(void) {
-	for(uint16 i = 0; i < nGreenFlagThreads; ++i) {
+	for(uint16 i = 0; i < nGreenFlagThreads; ++i)
 		startThread(greenFlagThreads[i]);
+}
+
+// Array of pointers to dynamic arrays of pointers to thread links for a particular broadcast
+// message.
+// It is meant to be accessed with the hash of the message, giving an array of pointers to the
+// threads for that broadcast.
+static dynarray *const *broadcastThreads;
+static uint16 nBroadcasts;
+static cmph_t *broadcastsMphf;
+
+void setBroadcastThreadPointers(cmph_t *const mphf, dynarray *const *const threads, const uint16 nThreads) {
+	broadcastThreads = threads;
+	nBroadcasts = nThreads;
+	broadcastsMphf = mphf;
+}
+
+void freeBroadcastThreadPointers(void) {
+	while(nBroadcasts != 0)
+		dynarray_free(broadcastThreads[--nBroadcasts]);
+	cmph_destroy(broadcastsMphf);
+}
+
+static void startBroadcastThreads(const char *const msg, uint16 msgLen) {
+	dynarray *threadsToStart = broadcastThreads[cmph_search(broadcastsMphf, msg, msgLen)];
+	for(uint16 i = 0; i < dynarray_len(threadsToStart); ++i) {
+		ThreadLink **thread = (ThreadLink**)dynarray_eltptr(threadsToStart, i);
+		startThread(*thread);
 	}
 }
 
@@ -338,13 +372,16 @@ static bool stepActiveThread(void) {
 	return false;
 }
 
+/* Steps all threads that are in the list of running threads as of being called.
+	 Returns a boolean telling whether or not there are still threads left. */
 bool stepThreads(void) {
 	doRedraw = false;
-	ThreadLink *last = &runningThreads;
-	ThreadLink *current = runningThreads.next;
+	ThreadLink *current;
 	clock_t startTime = clock(),
 		currentTime = startTime;
 	do {
+		current = runningThreads.next;
+
 		// step each thread
 		while(current != NULL) {
 			printf("--thread\n");
@@ -353,21 +390,31 @@ bool stepThreads(void) {
 
 			// step the thread
 			if(stepActiveThread()) { // if the thread should be killed
-				if(runningThreads.next == NULL) // if all threads were killed
+				if(current->prev == NULL) // if the chain has already been broken, meaning all threads were stopped
 					return false;
 				else {
-					current = current->next; // advance to the next context
-					last->next->next = NULL; // break link at stopped thread
-					last->next = current; // make link between thread before and thread after stopped thread
+					ThreadLink *stopped = current;
+					current = current->next; // advance to next thread
+					if(current == NULL) {
+						stopped->prev->next = NULL;
+					}
+					else {
+						stopped->prev->next = current;
+						current->prev = stopped->prev;
+					}
+					stopped->prev = stopped->next = NULL;
+
+					if(runningThreads.next == NULL) {
+						return false;
+					}
 				}
 			}
 			else {
-				last = current; // record the current context
 				current = current->next; // advance to the next context
 			}
 		}
 		// get the current time, check if a redraw needs to be done, and repeat TODO
 		currentTime = clock();
 	} while(currentTime - startTime < workTime && doRedraw == false);
-	return false;
+	return true;
 }

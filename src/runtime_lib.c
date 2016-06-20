@@ -561,6 +561,15 @@ BF(getParam) {
 	return NULL;
 }
 
+/* Events */
+
+BF(broadcast) {
+	char *msg;
+	uint16 msgLen = toString(arg+0, &msg);
+	startBroadcastThreads(msg, msgLen);
+	return block->p.next;
+}
+
 /* Looks */
 
 BF(say) {
