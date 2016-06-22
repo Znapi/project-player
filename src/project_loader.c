@@ -8,9 +8,6 @@
 	a different module.
 **/
 
-/* TODO: figure out how to use gperf and switch to it (cmph is for large sets of keys, but
-	 of the hash tables this program creates are small (< 100 keys) */
-
 #include <stdlib.h>
 #include <string.h>
 #include <iconv.h>
@@ -48,7 +45,6 @@ static void tokenizeJson(const size_t jsonLength) {
 	else if(nTokens == JSMN_ERROR_PART)
 		ERROR("JSMN_ERROR_PART")
 	tokens = malloc(nTokens*sizeof(jsmntok_t));
-	printf("nTokens: %u\n", nTokens);
 
 	jsmn_init(&parser);
 	nTokens = jsmn_parse(&parser, json, jsonLength, tokens, nTokens);
@@ -269,7 +265,6 @@ static void allocateScript(Block **const blocks, Value **const values, uint16 nT
 	*blocks = malloc(len); // TODO: free
 	memset(*blocks, 0, len);
 	*values = (Value*)((byte*)*blocks + lenOfBlocks);
-	printf("nBlocks: %zu\nnValues: %zu\n", nBlocks, nValues);
 }
 
 cmph_t *blockMphf;
@@ -290,7 +285,7 @@ static inline uint32 tokchash(cmph_t *mphf) {
 
 #include "blockhash/typestable.c"
 
-static char **procedureParameters;
+static char **procedureParameters; // TODO: switch this to a dynarray
 static uint16 nParameters;
 
 /* Parses arguments to a block, using recursion when one of the arguments is another
@@ -423,7 +418,7 @@ static void parseStack(Block **const blocks, Value **const values, uint16 nStack
 
 // dynarmic arrays of pointers to scripts under specific hat blocks, for easy lookup by
 // the runtime
-static cmph_t* generateMphf(char **keys, const uint16 nKeys, const CMPH_ALGO algorithm) {
+cmph_t* generateMphf(char **keys, const uint16 nKeys, const CMPH_ALGO algorithm) {
 	cmph_io_adapter_t *keySource = cmph_io_vector_adapter(keys, nKeys);
 	cmph_config_t *config = cmph_config_new(keySource);
 	cmph_config_set_algo(config, algorithm);
@@ -432,77 +427,28 @@ static cmph_t* generateMphf(char **keys, const uint16 nKeys, const CMPH_ALGO alg
 	return mphf; // mphf needs to be destroyed
 }
 
-struct BroadcastThreads {
-	dynarray *threads; // dynamic array of pointers to ThreadLinks
-	char *msg;
-	uint16 msgLen;
-	UT_hash_handle hh;
-};
-static struct BroadcastThreads *broadcastsCollection = NULL;
+static struct BroadcastThreads *broadcastsHashTable = NULL;
 
-static dynarray* addBroadcast(char *const msg, const uint32 msgLen) {
+static inline dynarray* addBroadcast(char *const msg, const uint32 msgLen) {
 	struct BroadcastThreads *newBroadcast;
-	HASH_FIND_STR(broadcastsCollection, msg, newBroadcast);
+	HASH_FIND_STR(broadcastsHashTable, msg, newBroadcast);
 	if(newBroadcast == NULL) {
 		newBroadcast = malloc(sizeof(struct BroadcastThreads));
 		dynarray_new(newBroadcast->threads, sizeof(ThreadLink*));
 		newBroadcast->msg = msg;
-		newBroadcast->msgLen = msgLen;
-		HASH_ADD_KEYPTR(hh, broadcastsCollection, newBroadcast->msg, msgLen, newBroadcast);
+		HASH_ADD_KEYPTR(hh, broadcastsHashTable, newBroadcast->msg, msgLen, newBroadcast);
 	}
 	return newBroadcast->threads;
 }
 
-static inline dynarray** generateBroadcastsHashTable(cmph_t **const mphf, uint16 *const nBroadcasts) {
-	*nBroadcasts = HASH_COUNT(broadcastsCollection);
-	if(*nBroadcasts == 0)
-		return NULL;
-	char **const messages = malloc(*nBroadcasts*sizeof(char*));
-	uint16 *const messageLens = malloc(*nBroadcasts*sizeof(uint16));
-	struct BroadcastThreads *current, *next;
-	uint16 i = 0;
-	HASH_ITER(hh, broadcastsCollection, current, next) {
-		messages[i] = current->msg;
-		messageLens[i] = current->msgLen;
-		++i;
-	}
-	*mphf = generateMphf(messages, *nBroadcasts, CMPH_CHD);
-
-	dynarray **const ht = malloc(*nBroadcasts*sizeof(dynarray*));
-	i = 0;
-	HASH_ITER(hh, broadcastsCollection, current, next) {
-		ht[hash(messages[i], messageLens[i], *mphf)] = current->threads;
-		free(messages[i]);
-		HASH_DEL(broadcastsCollection, current);
-		free(current);
-		++i;
-	}
-	return ht;
-}
+struct ProcedureLink *procedureHashTable;
 
 static dynarray *greenFlagThreads;
 
-static cmph_t *procedureMphf;
-static Block **procedureHashTable;
-static uint16 *nProcedureArgsHashTable;
-
 static ThreadLink* parseScripts(SpriteContext *sprite) {
 	dynarray *threads;
+	Block **scriptPointer;
 	dynarray_new(threads, sizeof(ThreadLink));
-	ThreadLink tmpThread = {
-		{0},
-		sprite,
-		NULL
-	};
-
-	dynarray *procedureNames;
-	dynarray *procedures;
-	dynarray *nProcedureArgs;
-	dynarray_new(procedureNames, sizeof(char*));
-	dynarray_new(procedures, sizeof(Block*));
-	dynarray_new(nProcedureArgs, sizeof(uint16));
-
-	dynarray *threadCollection;
 
 	++pos; // advance to array of scripts
 	uint16 nScriptsToGo = TOKC.size;
@@ -510,34 +456,60 @@ static ThreadLink* parseScripts(SpriteContext *sprite) {
 	do { // for each script
 		pos += 3; // advance past script position to script (array of blocks)
 		const uint16 nStackBlocks = TOKC.size - 1;
-		if(nStackBlocks == 0) {// if this is a lone block
+
+		// First, check if the script isn't empty and starts with a hat block, then organize
+		// based on which hat block it is topped with.
+		if(nStackBlocks == 0) { // if this is a lone block
 			pos -= 3; // go back to script
 			skip(); // and skip it
 			continue;
 		}
-
-		// first, check if the script is topped by a hat block, and will be reached by the runtime
-		bool isProcedure = false;
 		pos += 2; // advance to opstring of first block
-		if(tokceq("whenGreenFlag"))
-			threadCollection = greenFlagThreads;
-		else if(tokceq("whenIRecieve")) {
-			++pos;
-			char *msg;
-			tokcext(msg);
-			threadCollection = addBroadcast(msg, charBuffer->i - 1);
-			--pos;
+
+		bool isProcedure = false;
+		if(!tokceq("procDef")) {
+			ThreadLink tmpThread = {
+				{0},
+				sprite,
+				NULL
+			};
+			tmpThread.thread = createThreadContext(NULL);
+			dynarray_push_back(threads, &tmpThread);			
+			ThreadLink *newThread = (ThreadLink*)dynarray_back(threads);
+			scriptPointer = (Block**)&newThread->thread.topBlock;
+
+			if(tokceq("whenGreenFlag")) {
+				dynarray_push_back(greenFlagThreads, &newThread);
+			}
+			else if(tokceq("whenIRecieve")) {
+				++pos;
+				char *msg;
+				tokcext(msg);
+				dynarray *broadcastThreads = addBroadcast(msg, charBuffer->i - 1);
+				dynarray_push_back(broadcastThreads, &newThread);
+				--pos;
+			}
+			else { // it is not a hat
+				pos -= 4; // go back to script ([xpos, ypos, [blocks...]])
+				skip(); // skip the script
+				continue;
+			}
 		}
-		else if(tokceq("procDef")) {
+		else {
 			isProcedure = true;
+			struct ProcedureLink *newProc = malloc(sizeof(struct ProcedureLink));
+
 			++pos; // advance to procedure label
-			const char *label;
-			tokcext(label);
-			dynarray_push_back(procedureNames, (void*)&label);
+			tokcext(newProc->label);
+
 			++pos; // advance to array of parameter declarations
 			nParameters = TOKC.size;
-			dynarray_push_back(nProcedureArgs, &nParameters);
-			if(nParameters != 0) {
+			newProc->nParameters = nParameters;
+
+			scriptPointer = &newProc->script;
+			HASH_ADD_KEYPTR(hh, procedureHashTable, newProc->label, charBuffer->i-1, newProc);
+
+			if(nParameters != 0) { // store names of parameter names, in order
 				procedureParameters = malloc(nParameters*sizeof(char*));
 				for(uint16 i = 0; i < nParameters; ++i) {
 					++pos;
@@ -546,34 +518,21 @@ static ThreadLink* parseScripts(SpriteContext *sprite) {
 			}
 			pos -= nParameters + 2; // return to opstring of procedure
 		}
-		else { // it is not a hat
-			pos -= 4; // go back to script ([xpos, ypos, [blocks...]])
-			skip(); // skip the script
-			continue;
-		}
 		--pos;
 		skip(); // advance to past hat block
 
-		// if it is a hat block, then allocate enough space for all the Blocks and Values that will make it up
-		Block *blockBuffer;
+		// allocate enough space for all the Blocks and Values that will make it up
 		Value *valueBuffer;
 		const unsigned scriptPos = pos;
-		allocateScript(&blockBuffer, &valueBuffer, nStackBlocks);
+		allocateScript(scriptPointer, &valueBuffer, nStackBlocks);
 
 		// parse it into Blocks and Values
 		pos = scriptPos; // return to the top of the script
-		Block *blocks = blockBuffer; Value *values = valueBuffer;
+		Block *blocks = *scriptPointer; Value *values = valueBuffer;
 		parseStack(&blocks, &values, nStackBlocks, NULL);
 
-		// finally, create a ThreadLink for it, add it to the list, and organize based on hat type for easy lookup by the runtime
-		if(!isProcedure) {
-			tmpThread.thread = createThreadContext(blockBuffer);
-			dynarray_push_back(threads, &tmpThread);
-			ThreadLink *newThreadLink = dynarray_back(threads);
-			dynarray_push_back(threadCollection, &newThreadLink);
-		}
-		else { // or, if it is a procedure, add the script to the list of procedures and cleanup
-			dynarray_push_back(procedures, &blockBuffer);
+		// cleanup
+		if(isProcedure) {
 			if(nParameters != 0) {
 				while(nParameters != 0)
 					free(procedureParameters[--nParameters]);
@@ -582,26 +541,10 @@ static ThreadLink* parseScripts(SpriteContext *sprite) {
 		}
 	} while(--nScriptsToGo != 0);
 
-	// finalize dynamic data structures
+	// finalize ThreadLink array
 	ThreadLink *threadsFinalized;
 	dynarray_finalize(threads, (void**)&threadsFinalized);
 
-	procedureMphf = generateMphf((char**)procedureNames->d, dynarray_len(procedures), CMPH_CHD);
-	procedureHashTable = malloc(dynarray_len(procedures) * sizeof(Block*));
-	nProcedureArgsHashTable = malloc(dynarray_len(procedures) * sizeof(uint16));
-	for(unsigned i = 0; i < dynarray_len(procedures); ++i) {
-		const char *const key = *((char**)dynarray_eltptr(procedureNames, i));
-		uint32 phash = hash(key, strlen(key), procedureMphf);
-		procedureHashTable[phash] = *((Block**)dynarray_eltptr(procedures, i));
-		nProcedureArgsHashTable[phash] = *((uint16*)dynarray_eltptr(nProcedureArgs, i));
-	}
-
-	// clean up
-	for(unsigned i = dynarray_len(procedureNames); i != 0;)
-		free(((char**)procedureNames->d)[--i]);
-	dynarray_free(procedureNames);
-	dynarray_free(procedures);
-	dynarray_free(nProcedureArgs);
 	return threadsFinalized;
 }
 
@@ -619,9 +562,7 @@ static bool attemptToParseSpriteProperty(SpriteContext *sprite) {
 	else if(tokceq("scripts")) {
 		puts("scripts");
 		sprite->threads = parseScripts(sprite);
-		sprite->procedures = procedureHashTable;
-		sprite->nProcedureArgs = nProcedureArgsHashTable;
-		sprite->proceduresMphf = procedureMphf;
+		sprite->procedureHashTable = procedureHashTable;
 		return true;
 	}
 	return false;
@@ -667,10 +608,7 @@ void** loadProject(const char *const projectJson, const size_t jsonLength, ufast
 	dynarray_finalize(greenFlagThreads, (void**)&greenFlagThreadsFinalized);
 	setGreenFlagThreads(greenFlagThreadsFinalized, nGreenFlagThreads);
 
-	cmph_t *broadcastsMphf;
-	uint16 nBroadcasts;
-	dynarray **broadcastThreads = generateBroadcastsHashTable(&broadcastsMphf, &nBroadcasts);
-	setBroadcastThreadPointers(broadcastsMphf, broadcastThreads, nBroadcasts);
+	setBroadcastsHashTable(broadcastsHashTable);
 
 	// free resources
 	free(tokens);

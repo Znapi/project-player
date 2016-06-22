@@ -1,5 +1,18 @@
 #pragma once
 
+struct BroadcastThreads {
+	dynarray *threads; // dynamic array of pointers to ThreadLinks
+	char *msg;
+	UT_hash_handle hh;
+};
+
+struct ProcedureLink {
+	Block *script;
+	uint16 nParameters;
+	char *label;
+	UT_hash_handle hh;
+};
+
 extern struct ThreadContext createThreadContext(const struct Block *const block);
 extern void freeThreadContext(const struct ThreadContext *const context);
 
@@ -9,5 +22,5 @@ extern void setGreenFlagThreads(struct ThreadLink *const *const threadContexts, 
 extern void freeGreenFlagThreads(void);
 extern void restartGreenFlagThreads(void);
 
-extern void setBroadcastThreadPointers(cmph_t *const mphf, dynarray *const *const threads, const uint16 nThreads);
-extern void freeBroadcastThreadPointers(void);
+extern void setBroadcastsHashTable(struct BroadcastThreads *const hashTable);
+extern void freeBroadcastHashTable(void);

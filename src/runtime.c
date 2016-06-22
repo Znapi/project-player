@@ -247,30 +247,27 @@ void restartGreenFlagThreads(void) {
 		startThread(greenFlagThreads[i]);
 }
 
-// Array of pointers to dynamic arrays of pointers to thread links for a particular broadcast
-// message.
-// It is meant to be accessed with the hash of the message, giving an array of pointers to the
-// threads for that broadcast.
-static dynarray *const *broadcastThreads;
-static uint16 nBroadcasts;
-static cmph_t *broadcastsMphf;
+static struct BroadcastThreads *broadcastsHashTable = NULL;
 
-void setBroadcastThreadPointers(cmph_t *const mphf, dynarray *const *const threads, const uint16 nThreads) {
-	broadcastThreads = threads;
-	nBroadcasts = nThreads;
-	broadcastsMphf = mphf;
+void setBroadcastsHashTable(struct BroadcastThreads *const hashTable) {
+	broadcastsHashTable = hashTable;
 }
 
-void freeBroadcastThreadPointers(void) {
-	while(nBroadcasts != 0)
-		dynarray_free(broadcastThreads[--nBroadcasts]);
-	cmph_destroy(broadcastsMphf);
+void freeBroadcastsHashTable(void) {
+	struct BroadcastThreads *current, *next;
+	HASH_ITER(hh, broadcastsHashTable, current, next) {
+		dynarray_free(current->threads);
+		HASH_DEL(broadcastsHashTable, current);
+		free(current);
+	}
 }
 
-static void startBroadcastThreads(const char *const msg, uint16 msgLen) {
-	dynarray *threadsToStart = broadcastThreads[cmph_search(broadcastsMphf, msg, msgLen)];
-	for(uint16 i = 0; i < dynarray_len(threadsToStart); ++i) {
-		ThreadLink **thread = (ThreadLink**)dynarray_eltptr(threadsToStart, i);
+static void startBroadcastThreads(const char *const msg, const uint16 msgLen) {
+	struct BroadcastThreads *broadcastThreadsLink;
+	HASH_FIND(hh, broadcastsHashTable, msg, msgLen,  broadcastThreadsLink);
+	dynarray *threads = broadcastThreadsLink->threads;
+	for(uint16 i = 0; i < dynarray_len(threads); ++i) {
+		ThreadLink **thread = (ThreadLink**)dynarray_eltptr(threads, i);
 		startThread(*thread);
 	}
 }
@@ -287,8 +284,10 @@ static void startBroadcastThreads(const char *const msg, uint16 msgLen) {
 	are freed at the end of the procedure.
 **/
 
-static uint32 getProcedureHash(const char *const name, uint32 nameLen) {
-	return cmph_search(activeSprite->proceduresMphf, name, nameLen);
+static const struct ProcedureLink *getProcedure(const char *const label, const uint32 labelLen) {
+	struct ProcedureLink *procLink;
+	HASH_FIND(hh, activeSprite->procedureHashTable, label, labelLen, procLink);
+	return procLink;
 }
 
 /**

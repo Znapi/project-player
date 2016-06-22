@@ -542,18 +542,16 @@ BF(list_length) {
 
 BF(call) {
 	char *procName;
-	uint32 i = toString(arg+0, &procName);
-	uint16 hash = getProcedureHash(procName, i);
+	const uint32 procNameLen = toString(arg+0, &procName);
+	const struct ProcedureLink *const procedure = getProcedure(procName, procNameLen);
 
-	i = activeSprite->nProcedureArgs[hash];
-	dynarray_push_back(activeThread->nParametersStack, &i);
-	++i;
-	for(uint16 j = 1; j < i; ++j)
+	dynarray_push_back(activeThread->nParametersStack, (void*)&procedure->nParameters);
+	for(uint16 j = 1; j < procedure->nParameters+1; ++j)
 		dynarray_push_back(activeThread->parametersStack, (void*)(arg+j));
-	activeThread->parameters = (Value*)dynarray_eltptr(activeThread->parametersStack, dynarray_len(activeThread->parametersStack) - (i-1));
+	activeThread->parameters = (Value*)dynarray_eltptr(activeThread->parametersStack, dynarray_len(activeThread->parametersStack) - procedure->nParameters);
 
 	enterProcedure(block->p.next);
-	return activeSprite->procedures[hash];
+	return procedure->script;
 }
 
 BF(getParam) {

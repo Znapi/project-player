@@ -4,8 +4,11 @@
 #include <stdio.h>
 #include <cmph.h>
 #include "ut/dynarray.h"
+#include "ut/uthash.h"
 
 #include "types/primitives.h"
+#include "types/value.h"
+#include "types/block.h"
 
 #include "project_loader.h"
 
