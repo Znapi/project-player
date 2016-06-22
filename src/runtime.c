@@ -223,6 +223,9 @@ static void resetThreadContext(ThreadContext *const context) {
 static void startThread(ThreadLink *const link) {
 	resetThreadContext(&link->thread);
 	link->thread.frame.nextBlock = link->thread.topBlock;
+	if(link->prev != NULL) // if the thread is already started, don't attempt to readd it to the list
+		return;
+
 	if(runningThreads.next == NULL) {
 		link->next = NULL;
 	}
@@ -276,12 +279,13 @@ void freeBroadcastsHashTable(void) {
 	}
 }
 
-static void startBroadcastThreads(const char *const msg, const uint16 msgLen, struct BroadcastThreads **const nullifyOnRestart) {
+/* returns a boolean saying whether or not the current thread was restarted */
+static bool startBroadcastThreads(const char *const msg, const uint16 msgLen, struct BroadcastThreads **const nullifyOnRestart) {
 	struct BroadcastThreads *broadcastThreadsLink;
 	HASH_FIND(hh, broadcastsHashTable, msg, msgLen,  broadcastThreadsLink);
 	if(broadcastThreadsLink == NULL) {
 		*nullifyOnRestart = NULL;
-		return;
+		return false;
 	}
 	if(broadcastThreadsLink->nullifyOnRestart != NULL)
 		*broadcastThreadsLink->nullifyOnRestart = NULL;
@@ -289,11 +293,15 @@ static void startBroadcastThreads(const char *const msg, const uint16 msgLen, st
 	if(nullifyOnRestart != NULL)
 		*nullifyOnRestart = broadcastThreadsLink;
 
+	bool r = false;
 	dynarray *threads = broadcastThreadsLink->threads;
 	for(uint16 i = 0; i < dynarray_len(threads); ++i) {
 		ThreadLink **thread = (ThreadLink**)dynarray_eltptr(threads, i);
+		if(&(*thread)->thread == activeThread)
+			r = true;
 		startThread(*thread);
 	}
+	return r;
 }
 
 /**

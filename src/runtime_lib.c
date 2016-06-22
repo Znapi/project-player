@@ -570,8 +570,12 @@ BF(getParam) {
 BF(broadcast) {
 	char *msg;
 	uint16 msgLen = toString(arg+0, &msg);
-	startBroadcastThreads(msg, msgLen, NULL);
-	return block->p.next;
+	if(startBroadcastThreads(msg, msgLen, NULL)) {
+		doYield = true;
+		return activeThread->topBlock;
+	}
+	else
+		return block->p.next;
 }
 
 // This one's implementation is kinda hacky. Basically it allocates a pointer to the
@@ -589,14 +593,16 @@ BF(broadcast_and_wait) {
 	if(allocTmpData(block))	{
 		char *msg;
 		uint16 msgLen = toString(arg+0, &msg);
-		startBroadcastThreads(msg, msgLen, (struct BroadcastThreads**)&getTmpDataPointer()->p); // set the counter to the number of broadcast threads
 		doYield = true;
-		return block;
+		if(startBroadcastThreads(msg, msgLen, (struct BroadcastThreads**)&getTmpDataPointer()->p)) // set the counter to the number of broadcast threads
+			return activeThread->topBlock;
+		else
+			return block;
 	}
 	else {
 		struct BroadcastThreads *const broadcastLink = pgetTmpData();
 		if(broadcastLink == NULL) // if the broadcast message was sent by another thread
-			return block->p.next;
+			return block->p.next; // don't continue; start at the top
 		else { // check each broadcast thread for whether or not it was stopped
 		  ThreadLink **threadPtr = (ThreadLink**)dynarray_front(broadcastLink->threads);
 			do {
