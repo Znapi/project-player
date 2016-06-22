@@ -3,9 +3,10 @@
 //#include <time.h>              // not all modules need the functionality provided in time.h
 #include <sys/_types/_clock_t.h> // instead, only define the type clock_t, which is all that is needed from time.h to compile this
 
-union Counter {
+union TmpData {
 	uint32 u;
 	float f;
+	void *p;
 };
 
 struct BlockStackFrame {
@@ -23,10 +24,10 @@ struct ThreadContext {
 	clock_t lastTime;
 
 	struct {
-		union Counter *counters; // TODO: make this a dynarray
+		union TmpData *data; // TODO: make this a dynarray
 		const struct Block **owners;
 		ufastest slotsUsed;
-	} counters;
+	} tmp;
 
 	struct Value *parameters; // custom block parameters (just a pointer into the parametersStack)
 	dynarray *parametersStack; // dynarray of Values.

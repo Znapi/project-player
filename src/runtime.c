@@ -1,8 +1,6 @@
 /**
 	Runtime
-		runtime.c
-
-	TODO description
+	  runtime.c
 **/
 
 #include <stdio.h>
@@ -47,43 +45,55 @@ static bool doRedraw, doYield;
 **/
 
 /* alloc is not quite the right term, but I couldn't think of a better one */
-static bool allocCounter(const Block *const block) {
-	if(activeThread->counters.slotsUsed == 0) {
-		activeThread->counters.owners[activeThread->counters.slotsUsed] = block;
-		++activeThread->counters.slotsUsed;
+static bool allocTmpData(const Block *const block) {
+	if(activeThread->tmp.slotsUsed == 0) {
+		activeThread->tmp.owners[activeThread->tmp.slotsUsed] = block;
+		++activeThread->tmp.slotsUsed;
 		return true;
 	}
-	else if(activeThread->counters.owners[activeThread->counters.slotsUsed-1] != block) {
-		activeThread->counters.owners[activeThread->counters.slotsUsed] = block;
-		++activeThread->counters.slotsUsed;
+	else if(activeThread->tmp.owners[activeThread->tmp.slotsUsed-1] != block) {
+		activeThread->tmp.owners[activeThread->tmp.slotsUsed] = block;
+		++activeThread->tmp.slotsUsed;
 		return true;
 	}
 	else
 		return false;
 }
 
-static void freeCounter(void) {
-	--activeThread->counters.slotsUsed;
-	activeThread->counters.owners[activeThread->counters.slotsUsed] = NULL;
+static void freeTmpData(void) {
+	--activeThread->tmp.slotsUsed;
+	activeThread->tmp.owners[activeThread->tmp.slotsUsed] = NULL;
+}
+
+static union TmpData* getTmpDataPointer(void) {
+	return activeThread->tmp.data+(activeThread->tmp.slotsUsed-1);
 }
 
 /* get the unsigned integer value of the current counter */
-static inline uint32 ugetCounter(void) {
-	return activeThread->counters.counters[activeThread->counters.slotsUsed-1].u;
+static inline uint32 ugetTmpData(void) {
+	return activeThread->tmp.data[activeThread->tmp.slotsUsed-1].u;
 }
 
 /* set the unsigned integer value of the current counter */
-static inline void usetCounter(const uint32 newValue) {
-	activeThread->counters.counters[activeThread->counters.slotsUsed-1].u = newValue;
+static inline void usetTmpData(const uint32 newValue) {
+	activeThread->tmp.data[activeThread->tmp.slotsUsed-1].u = newValue;
 }
 
 /* get the single precision floating point value from the counter */
-static inline float fgetCounter(void) {
-	return activeThread->counters.counters[activeThread->counters.slotsUsed-1].f;
+static inline float fgetTmpData(void) {
+	return activeThread->tmp.data[activeThread->tmp.slotsUsed-1].f;
 }
 
-static inline void fsetCounter(const float newValue) {
-	activeThread->counters.counters[activeThread->counters.slotsUsed-1].f = newValue;
+static inline void fsetTmpData(const float newValue) {
+	activeThread->tmp.data[activeThread->tmp.slotsUsed-1].f = newValue;
+}
+
+static inline void* pgetTmpData(void) {
+	return activeThread->tmp.data[activeThread->tmp.slotsUsed-1].p;
+}
+
+static inline void psetTmpData(void *const newValue) {
+	activeThread->tmp.data[activeThread->tmp.slotsUsed-1].p = newValue;
 }
 
 /**
@@ -177,7 +187,7 @@ ThreadContext createThreadContext(const Block *const block) {
 
 		0,
 
-		{malloc(16*sizeof(union Counter)), malloc(16*sizeof(Block *)), 0},
+		{malloc(16*sizeof(union TmpData)), malloc(16*sizeof(Block *)), 0},
 
 		NULL,
 		NULL,
@@ -194,17 +204,21 @@ void freeThreadContext(const ThreadContext *const context) {
 	dynarray_free(context->blockStack);
 	dynarray_free(context->parametersStack);
 	dynarray_free(context->nParametersStack);
-	free(context->counters.counters);
-	free(context->counters.owners);
+	free(context->tmp.data);
+	free(context->tmp.owners);
 }
 
 static void resetThreadContext(ThreadContext *const context) {
 	context->frame.level = 0;
 	context->frame.nextBlock = NULL;
 	dynarray_clear(context->blockStack);
-	context->counters.slotsUsed = 0;
+	context->tmp.slotsUsed = 0;
+	context->parameters = NULL;
 	dynarray_clear(context->parametersStack);
+	dynarray_clear(context->nParametersStack);
 }
+
+#define isThreadStopped(t) ((t).frame.nextBlock == NULL) // && (t).frame.level == 0 && dynarray_len((t).blockStack) == 0)
 
 static void startThread(ThreadLink *const link) {
 	resetThreadContext(&link->thread);
@@ -262,9 +276,19 @@ void freeBroadcastsHashTable(void) {
 	}
 }
 
-static void startBroadcastThreads(const char *const msg, const uint16 msgLen) {
+static void startBroadcastThreads(const char *const msg, const uint16 msgLen, struct BroadcastThreads **const nullifyOnRestart) {
 	struct BroadcastThreads *broadcastThreadsLink;
 	HASH_FIND(hh, broadcastsHashTable, msg, msgLen,  broadcastThreadsLink);
+	if(broadcastThreadsLink == NULL) {
+		*nullifyOnRestart = NULL;
+		return;
+	}
+	if(broadcastThreadsLink->nullifyOnRestart != NULL)
+		*broadcastThreadsLink->nullifyOnRestart = NULL;
+	broadcastThreadsLink->nullifyOnRestart = nullifyOnRestart;
+	if(nullifyOnRestart != NULL)
+		*nullifyOnRestart = broadcastThreadsLink;
+
 	dynarray *threads = broadcastThreadsLink->threads;
 	for(uint16 i = 0; i < dynarray_len(threads); ++i) {
 		ThreadLink **thread = (ThreadLink**)dynarray_eltptr(threads, i);
@@ -334,7 +358,7 @@ static const Block* interpret(const Block block[], Value stack[], Value *const r
 			blockPos += new - (block + blockPos);
 		}
 		else/* next.level < level */{ // it must be a block
-			Block *move = (*opsTable[next.hash])(block + blockPos, reportSlot, stack);
+			const Block *move = (*opsTable[next.hash])(block + blockPos, reportSlot, stack);
 			if(level == 1)
 				return move;
 			else
@@ -383,7 +407,7 @@ bool stepThreads(void) {
 
 		// step each thread
 		while(current != NULL) {
-			printf("--thread\n");
+			//printf("--thread\n");
 			activeThread = &current->thread; // set the active context
 			activeSprite = current->sprite;
 

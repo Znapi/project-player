@@ -1,7 +1,7 @@
 #pragma once
 
 typedef ubyte blockhash; // for asserting that a type is specifically a block hash
-typedef struct Block* (*blockfunc)(const struct Block *block, struct Value * const reportSlot, const struct Value arg[]); // block function pointer
+typedef const struct Block* (*blockfunc)(const struct Block *block, struct Value * const reportSlot, const struct Value arg[]); // block function pointer
 
 // Internal representation of a block
 struct Block {

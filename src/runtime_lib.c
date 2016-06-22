@@ -16,7 +16,7 @@
 		showing/hiding monitors when graphics are implemented
 */
 
-#define BF(name) static Block* bf_##name(const Block *const block, Value *const reportSlot, const Value arg[])
+#define BF(name) static const Block* bf_##name(const Block *const block, Value *const reportSlot, const Value arg[])
 
 BF(noop) { puts("NOOP CALLED!"); return block->p.next; }
 
@@ -287,6 +287,7 @@ BF(do_until) {
 		return block->p.substacks[1];
 	}
 	else {
+		doYield = true;
 		// enter loop
 		enterSubstack(activeThread->frame.nextBlock); // return to this block after substack inside loop is finished
 		return block->p.substacks[0];
@@ -295,41 +296,46 @@ BF(do_until) {
 
 BF(do_wait_until) {
 	if(toBoolean(arg+0))
-		return (void*)block;
-	else
+		return block;
+	else {
+		doYield = true;
 		return block->p.next;
+	}
 }
 
 BF(do_repeat) {
-	if(allocCounter(block))
-		usetCounter((uint16)toInteger(arg+0));
+	if(allocTmpData(block))
+		usetTmpData((uint16)toInteger(arg+0));
 
-	if(ugetCounter() != 0) {
-		usetCounter(ugetCounter()-1);
+	if(ugetTmpData() != 0) {
+		doYield = true;
+		usetTmpData(ugetTmpData()-1);
 		enterSubstack(activeThread->frame.nextBlock);
 		return block->p.substacks[0];
 	}
 	else {
-		freeCounter();
+		freeTmpData();
 		return block->p.substacks[1];
 	}
 }
 
 BF(do_wait) {
-	if(allocCounter(block)) {
-		fsetCounter((float)toFloating(arg+0) * CLOCKS_PER_SEC);
+	if(allocTmpData(block)) {
+		fsetTmpData((float)toFloating(arg+0) * CLOCKS_PER_SEC);
 	}
-	else if (fgetCounter() > 0) {
-		fsetCounter(fgetCounter()-dtime);
+	else if (fgetTmpData() > 0) {
+		fsetTmpData(fgetTmpData()-dtime);
 	}
 	else {
-		freeCounter();
+		freeTmpData();
 		return block->p.next;
 	}
-	return (void*)block;
+	doYield = true;
+	return block;
 }
 
 BF(do_forever) {
+	doYield = true;
 	enterSubstack(block);
 	return block->p.substacks[0];
 }
@@ -564,8 +570,46 @@ BF(getParam) {
 BF(broadcast) {
 	char *msg;
 	uint16 msgLen = toString(arg+0, &msg);
-	startBroadcastThreads(msg, msgLen);
+	startBroadcastThreads(msg, msgLen, NULL);
 	return block->p.next;
+}
+
+// This one's implementation is kinda hacky. Basically it allocates a pointer to the
+// BroadcastThreads structure for the given message, and the BroadcastsThreads also gets a
+// pointer to this new pointer. This function uses the pointer to access the array of
+// threads for the given message, so that it can check if all of those threads are
+// stopped. The BroadcastThreads uses it's pointer to nullify the pointer this function
+// allocated, acting as a notification that the message was re-sent, which is undetectable
+// from this function alone.
+// This function also uses it's pointer to the BroadcastThreads to nullify the
+// BroadcastThreads's pointer to this functions allocated pointer when this function
+// detects that it is done waiting and frees it's allocated pointer. This prevents memory
+// being written when it shouldn't be. Did I mention that this has to do with pointers?
+BF(broadcast_and_wait) {
+	if(allocTmpData(block))	{
+		char *msg;
+		uint16 msgLen = toString(arg+0, &msg);
+		startBroadcastThreads(msg, msgLen, (struct BroadcastThreads**)&getTmpDataPointer()->p); // set the counter to the number of broadcast threads
+		doYield = true;
+		return block;
+	}
+	else {
+		struct BroadcastThreads *const broadcastLink = pgetTmpData();
+		if(broadcastLink == NULL) // if the broadcast message was sent by another thread
+			return block->p.next;
+		else { // check each broadcast thread for whether or not it was stopped
+		  ThreadLink **threadPtr = (ThreadLink**)dynarray_front(broadcastLink->threads);
+			do {
+				if(!isThreadStopped((*threadPtr)->thread)) {
+					doYield = true;
+					return block;
+				}
+				threadPtr = (ThreadLink**)dynarray_next(broadcastLink->threads, threadPtr);
+			} while(threadPtr != NULL);
+			broadcastLink->nullifyOnRestart = NULL; // empty this field out so that when the message is broadcast again we don't overwrite memory
+			return block->p.next; // if all broadcast threads are stopped, continue on to next block
+		}
+	}
 }
 
 /* Looks */

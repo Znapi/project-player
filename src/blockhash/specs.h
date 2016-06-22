@@ -139,7 +139,7 @@ const struct BlockSpec specs[] = {
 
 	{"whenIReceive", "bf_noop", h},
 	{"broadcast:", "bf_broadcast", s},
-	{"doBroadcastAndWait", "bf_noop", s},
+	{"doBroadcastAndWait", "bf_broadcast_and_wait", s},
 
 	// Control
 	{"wait:elapsed:from:", "bf_do_wait", s},
