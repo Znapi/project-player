@@ -267,8 +267,8 @@ static void allocateScript(Block **const blocks, Value **const values, uint16 nT
 	*values = (Value*)((byte*)*blocks + lenOfBlocks);
 }
 
-cmph_t *blockMphf;
-blockhash noop_hash;
+static cmph_t *blockMphf;
+static blockhash noop_hash;
 
 static inline uint32 hash(const char *const key, const size_t keyLen, cmph_t *mphf) {
 	return cmph_search(mphf, key, keyLen);
@@ -416,19 +416,9 @@ static void parseStack(Block **const blocks, Value **const values, uint16 nStack
 	*blocks = block;
 }
 
-// dynarmic arrays of pointers to scripts under specific hat blocks, for easy lookup by
-// the runtime
-cmph_t* generateMphf(char **keys, const uint16 nKeys, const CMPH_ALGO algorithm) {
-	cmph_io_adapter_t *keySource = cmph_io_vector_adapter(keys, nKeys);
-	cmph_config_t *config = cmph_config_new(keySource);
-	cmph_config_set_algo(config, algorithm);
-	cmph_t *mphf = cmph_new(config);
-	cmph_config_destroy(config);
-	return mphf; // mphf needs to be destroyed
-}
+static struct BroadcastThreads *broadcastsHashTable = NULL; // could use a parameter so that this doesn't have to be global, but, ah well
 
-static struct BroadcastThreads *broadcastsHashTable = NULL;
-
+// TODO: why do broadcasts get a procedure outside of parseScripts, but procedures don't?
 static inline dynarray* addBroadcast(char *const msg, const uint32 msgLen) {
 	struct BroadcastThreads *newBroadcast;
 	HASH_FIND_STR(broadcastsHashTable, msg, newBroadcast);
@@ -449,6 +439,7 @@ static ThreadLink* parseScripts(SpriteContext *sprite) {
 	dynarray *threads;
 	Block **scriptPointer;
 	dynarray_new(threads, sizeof(ThreadLink));
+	procedureHashTable = NULL;
 
 	++pos; // advance to array of scripts
 	uint16 nScriptsToGo = TOKC.size;
