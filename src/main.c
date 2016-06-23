@@ -1,4 +1,4 @@
-#define JSON_PATH "project_test.json"
+#define JSON_PATH "project.json"
 
 #include <stdlib.h>
 #include <stdio.h>

@@ -289,7 +289,7 @@ static void parseBlockArgs(Block **const blocks, Value **const values, uint16 ar
 			++pos; // advance to opstring
 			blockhash hash = tokchash_new(blockMphf); // hash opstring
 
-			if(tokceq("getParam")) { // if it is a procedure parameter
+			if(tokceq("getParam")) { // if it is a procedure parameter TODO: actually parse 2nd argument
 				++pos; // advance to argument (param name)
 				parseString(gjson(TOKC), tokclen());
 				uint16 i;
@@ -545,10 +545,18 @@ static bool attemptToParseSpriteProperty(SpriteContext *sprite) {
 		sprite->procedureHashTable = procedureHashTable;
 		return true;
 	}
+	else if(tokceq("objName")) {
+		++pos;
+		tokcext(sprite->name);
+		++pos;
+		return true;
+	}
 	return false;
 }
 
-static inline void initializeSpriteContext(SpriteContext *c) {
+static inline void initializeSpriteContext(SpriteContext *const c, const enum SpriteScope scope) {
+	c->name = NULL;
+	c->scope = scope;
 	c->variables = NULL;
 	c->lists = NULL;
 	c->xpos = c->ypos = c->layer = c->costumeNumber = 0;
@@ -577,23 +585,52 @@ void** loadProject(const char *const projectJson, const size_t jsonLength, ufast
 
 	dynarray_new(greenFlagThreads, sizeof(ThreadLink*));
 
-	SpriteContext *stageContext = malloc(sizeof(SpriteContext));
-	initializeSpriteContext(stageContext);
+	dynarray *sprites;
+	dynarray_new(sprites, sizeof(SpriteContext));
+	dynarray_extend_back(sprites);
+	SpriteContext *stageContext = (SpriteContext*)dynarray_back(sprites);
+	initializeSpriteContext(stageContext, STAGE);
 
-	ufastest i = tokens[0].size;
+	ufastest nKeysToGo = tokens[0].size;
 	pos = 1;
 	do {
 		if(!attemptToParseSpriteProperty(stageContext)) {
 			if(tokceq("children")) {
 				puts("children");
-				skip();
+				++pos; // advance to array of "children"
+				ufastest nChildrenToGo = TOKC.size;
+				++pos; // advance to first child
+				do {
+					++pos; // advance to first key of next child
+					if(tokceq("objName")) { // if it is a sprite
+
+						--pos; // advance back to containing object
+						ufastest nSpriteKeysToGo = TOKC.size;
+
+						dynarray_extend_back(sprites);
+						SpriteContext *newSprite = (SpriteContext*)dynarray_back(sprites);
+						initializeSpriteContext(newSprite, SPRITE);
+
+						++pos; // advance back to first key
+						do {
+							if(!attemptToParseSpriteProperty(newSprite))
+								skip();
+						} while(--nSpriteKeysToGo != 0);
+
+					}
+					else { // it is not a sprite
+						--pos; skip();
+					}
+				} while(--nChildrenToGo != 0);
 			}
 			else // key isn't significant
 				skip();
 		}
-	} while(--i != 0);
+	} while(--nKeysToGo != 0);
 
 	// load into runtime
+	setStage(stageContext);
+
 	ThreadLink **greenFlagThreadsFinalized;
 	unsigned nGreenFlagThreads = dynarray_len(greenFlagThreads);
 	dynarray_finalize(greenFlagThreads, (void**)&greenFlagThreadsFinalized);

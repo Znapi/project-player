@@ -1,6 +1,15 @@
 #pragma once
 
+enum SpriteScope {
+	STAGE,
+	SPRITE,
+	CLONE
+};
+
 struct SpriteContext {
+	const char *name;
+	enum SpriteScope scope;
+
 	struct ThreadLink *threads; // array of thread contexts
 	uint16 nThreads;
 

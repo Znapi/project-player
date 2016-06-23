@@ -48,7 +48,10 @@ const Value defaultValue = {{.floating = 0.0}, FLOATING};
 /* Takes an already allocated Variable, initializes it, and adds it to the given hash table of Variables. */
 void variable_init(Variable **variables, Variable *const variable, const char *const name, const Value *const value) {
 	variable->name = extractString(name);
-	variable->value = extractSimplifiedValue(value);
+	if(value == NULL)
+		variable->value = defaultValue;
+	else
+		variable->value = extractSimplifiedValue(value);
 	HASH_ADD_STR(*variables, name, variable);
 }
 
@@ -72,24 +75,25 @@ void freeVariables(Variable **variables) {
 	}
 }
 
-void setVariable(Variable **variables, const char *const name, const Value *const newValue) {
+/* returns true if the variable does not exist in the hash table */
+bool setVariable(Variable **variables, const char *const name, const Value *const newValue) {
 	Variable *var;
 	HASH_FIND_STR(*variables, name, var);
 	if(var == NULL)
-		variable_new(variables, name, newValue);
-	else
-		var->value = extractSimplifiedValue(newValue);
+		return true;
+	var->value = extractSimplifiedValue(newValue);
+	return false;
 }
 
-Value getVariable(Variable **variables, const char *const name) {
+bool getVariable(Variable **variables, const char *const name, Value *const returnValue) {
 	Variable *var;
 	HASH_FIND_STR(*variables, name, var);
 	if(var == NULL) {
-		variable_new(variables, name, &defaultValue);
-		return defaultValue;
+		*returnValue = defaultValue;
+		return true;
 	}
-	else
-		return var->value;
+	*returnValue = var->value;
+	return false;
 }
 
 /* Lists */
@@ -135,15 +139,13 @@ void freeLists(List **lists) {
 	}
 }
 
-List* getListPtr(List **lists, const char *const name) {
+bool getListPtr(List **lists, const char *const name, List **const returnList) {
 	List *list;
 	HASH_FIND_STR(*lists, name, list);
-	if(list == NULL) {
-		list_new(lists, name);
-		return getListPtr(lists, name);
-	}
-	else
-		return list;
+	if(list == NULL)
+		return true;
+	*returnList = list;
+	return false;
 }
 
 Value listGetFirst(const List *const list) {

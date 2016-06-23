@@ -365,15 +365,21 @@ BF(stop_scripts) {
 BF(get_variable) {
 	char *name;
 	toString(arg+0, &name);
-	*reportSlot = getVariable(&activeSprite->variables, name);
+	if(getVariable(&activeSprite->variables, name, reportSlot)) {
+		if(getVariable(&stage->variables, name, reportSlot)) {
+			variable_new(&activeSprite->variables, name, NULL);
+		}
+	}
 	return NULL;
 }
 
-// TODO: add scoping
 BF(variable_set) {
 	char *name;
 	toString(arg+0, &name);
-	setVariable(&activeSprite->variables, name, arg+1);
+	if(setVariable(&activeSprite->variables, name, arg+1)) {
+		if(setVariable(&stage->variables, name, arg+1))
+			variable_new(&activeSprite->variables, name, arg+1);
+	}
 	return block->p.next;
 }
 
@@ -381,21 +387,38 @@ BF(variable_change) {
 	char *name;
 	toString(arg+0, &name);
 
-	Value value = getVariable(&activeSprite->variables, name);
+	Value value;
+	Variable **variables = &activeSprite->variables;
+	if(getVariable(&activeSprite->variables, name, &value)) {
+		if(getVariable(&stage->variables, name, &value))
+			variable_new(&activeSprite->variables, name, NULL);
+		else
+			variables = &stage->variables;
+	}
 	double incr = toFloating(arg+1);
 	value.data.floating = toFloating(&value);
 	value.data.floating += incr;
 	value.type = FLOATING;
-	setVariable(&activeSprite->variables, name, &value);
+	setVariable(variables, name, &value);
 
 	return block->p.next;
 }
+
+#define getOrCreateList(name, list) {										\
+		if(getListPtr(&activeSprite->lists, name, &list)) {	\
+			if(getListPtr(&stage->lists, name, &list))				\
+				list = list_new(&activeSprite->lists, name);		\
+		}																										\
+	}
 
 // TODO: this might be inefficient
 BF(list_getContents) {
 	char *str;
 	toString(arg+0, &str);
-	List *list = getListPtr(&activeSprite->lists, str);
+
+	List *list;
+	getOrCreateList(str, list);
+
 	char **elements = malloc(list->length*sizeof(char**));
 	if(elements == NULL) {
 		reportSlot->data.floating = 0.0;
@@ -438,14 +461,17 @@ BF(list_getContents) {
 BF(list_append) {
 	char *name;
 	toString(arg+1, &name);
-	listAppend(getListPtr(&activeSprite->lists, name), arg+0);
+	List *list;
+	getOrCreateList(name, list);
+	listAppend(list, arg+0);
 	return block->p.next;
 }
 
 BF(list_delete) {
 	char *name;
 	toString(arg+1, &name);
-	List *list = getListPtr(&activeSprite->lists, name);
+	List *list;
+	getOrCreateList(name, list);
 	if(arg[0].type == STRING) {
 		switch(arg[1].data.string[0]) {
 		case '1': listDeleteFirst(list); return block->p.next;
@@ -462,7 +488,8 @@ BF(list_delete) {
 BF(list_insert) {
 	char *name;
 	toString(arg+1, &name);
-	List *list = getListPtr(&activeSprite->lists, name);
+	List *list;
+	getOrCreateList(name, list);
 	if(arg[0].type == STRING) {
 		switch(arg[1].data.string[0]) {
 		case '1': listPrepend(list, arg+2); return block->p.next;
@@ -481,7 +508,8 @@ BF(list_insert) {
 BF(list_setElement) {
 	char *name;
 	toString(arg+1, &name);
-	List *list = getListPtr(&activeSprite->lists, name);
+	List *list;
+	getOrCreateList(name, list);
 	if(arg[0].type == STRING) {
 		switch(arg[1].data.string[0]) {
 		case '1': listSetFirst(list, arg+2); return block->p.next;
@@ -500,7 +528,8 @@ BF(list_setElement) {
 BF(list_getElement) {
 	char *name;
 	toString(arg+1, &name);
-	List *list = getListPtr(&activeSprite->lists, name);
+	List *list;
+	getOrCreateList(name, list);
 	if(arg[0].type == STRING) {
 		switch(arg[1].data.string[0]) {
 		case '1': *reportSlot = listGetFirst(list); return block->p.next;
@@ -519,7 +548,8 @@ BF(list_getElement) {
 BF(list_contains) {
 	char *name;
 	toString(arg+0, &name);
-	List *list = getListPtr(&activeSprite->lists, name);
+	List *list;
+	getOrCreateList(name, list);
 	Value value = extractSimplifiedValue(arg+1);
 	switch(value.type) {
 	case FLOATING:
@@ -539,8 +569,10 @@ BF(list_contains) {
 BF(list_length) {
 	char *name;
 	toString(arg+0, &name);
+	List *list;
+	getOrCreateList(name, list);
 	reportSlot->type = FLOATING;
-	reportSlot->data.floating = (double)getListPtr(&activeSprite->lists, name)->length;
+	reportSlot->data.floating = (double)list->length;
 	return NULL;
 }
 

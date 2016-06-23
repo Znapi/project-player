@@ -27,14 +27,17 @@
 static ThreadContext *activeThread;
 static SpriteContext *activeSprite;
 
-static Variable *stageVariables;
-static List *stageLists;
-
 static ThreadLink runningThreads = {{0}, NULL, NULL, NULL}; // the first item of the list is a stub that points to the first real item
 
 static clock_t dtime;
 static const clock_t workTime = (clock_t).75f * 1000 / 30; // work only for 75% of the alloted frame time. taken from Flash version.
 static bool doRedraw, doYield;
+
+static SpriteContext *stage;
+
+void setStage(SpriteContext *const stageContext) {
+	stage = stageContext;
+}
 
 /**
 	Counters
