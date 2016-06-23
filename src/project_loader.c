@@ -57,17 +57,6 @@ static void tokenizeJson(const size_t jsonLength) {
 #undef ERROR
 }
 
-static inline void initializeSpriteContext(SpriteContext *c) {
-	c->variables = NULL;
-	c->lists = NULL;
-	c->xpos = c->ypos = c->layer = c->costumeNumber = 0;
-	c->direction = 90; c->size = c->volume = 100; c->tempo = 60;
-	c->effects.color = c->effects.brightness = c->effects.ghost
-		= c->effects.pixelate = c->effects.mosaic
-		= c->effects.fisheye = c->effects.whirl
-		= 0;
-}
-
 static inline cmph_t* loadBlockHashFunc(void) {
 	FILE *stream = fopen("blockops.mphf", "r");
 	if(stream == NULL) {
@@ -323,7 +312,7 @@ static void parseBlockArgs(Block **const blocks, Value **const values, uint16 ar
 				block->hash = hash;
 				block->level = level;
 				++block;
-				++pos; // advance past argument
+				pos += 2; // advance past argument
 				continue;
 			}
 
@@ -472,7 +461,7 @@ static ThreadLink* parseScripts(SpriteContext *sprite) {
 			if(tokceq("whenGreenFlag")) {
 				dynarray_push_back(greenFlagThreads, &newThread);
 			}
-			else if(tokceq("whenIRecieve")) {
+			else if(tokceq("whenIReceive")) {
 				++pos;
 				char *msg;
 				tokcext(msg);
@@ -557,6 +546,17 @@ static bool attemptToParseSpriteProperty(SpriteContext *sprite) {
 		return true;
 	}
 	return false;
+}
+
+static inline void initializeSpriteContext(SpriteContext *c) {
+	c->variables = NULL;
+	c->lists = NULL;
+	c->xpos = c->ypos = c->layer = c->costumeNumber = 0;
+	c->direction = 90; c->size = c->volume = 100; c->tempo = 60;
+	c->effects.color = c->effects.brightness = c->effects.ghost
+		= c->effects.pixelate = c->effects.mosaic
+		= c->effects.fisheye = c->effects.whirl
+		= 0;
 }
 
 /* Takes a pointer to the JSON in memory, and returns an array of all the blocks (as in

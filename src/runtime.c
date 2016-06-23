@@ -284,7 +284,8 @@ static bool startBroadcastThreads(const char *const msg, const uint16 msgLen, st
 	struct BroadcastThreads *broadcastThreadsLink;
 	HASH_FIND(hh, broadcastsHashTable, msg, msgLen,  broadcastThreadsLink);
 	if(broadcastThreadsLink == NULL) {
-		*nullifyOnRestart = NULL;
+		if(nullifyOnRestart != NULL)
+			*nullifyOnRestart = NULL;
 		return false;
 	}
 	if(broadcastThreadsLink->nullifyOnRestart != NULL)
