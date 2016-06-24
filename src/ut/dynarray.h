@@ -127,8 +127,8 @@ static inline void dynarray_push_back(dynarray *a, void *p) {
 	memcpy(_dynarray_eltptr(a, a->i++), p, a->sz);
 }
 
-static inline void dynarray_pop_back(dynarray *a) { a->i--; }
-static inline void dynarray_pop_back_n(dynarray *a, unsigned n) { a->i -= n; }
+static inline unsigned dynarray_pop_back(dynarray *a) { return a->i--; }
+static inline void dynarray_pop_back_n(dynarray *a, unsigned n) { a->i -= n; } // unchecked
 
 static inline void dynarray_extend_back(dynarray *a) {
 	dynarray_reserve(a, 1);

@@ -8,11 +8,8 @@
 	implementation can be found in ut/uthash.h.
 
 	Variables are stored by the Variable structure, which contains their value and the
-	metadata that is part of the hash table. Lists are stored in the List structure,
-	which also contains metadata, but the list length and pointers to the first and last
-	elements of a linked list of ListElements. ListElements contain metadata for building
-	the linked list and the value of the element.
-	TODO: implement lists as dynamic arrays rather than linked lists.
+	metadata that is part of the hash table. Lists are stored in the List structure, which
+	also contains metadata, and the contents are stored as a dynarray of Values.
 
 	Interface
 
@@ -24,18 +21,16 @@
 	passed to it, such as Values and strings for variable names, copied before it is stored
 	(if it is stored). This is convenient when most data being passed is in temporary
 	memory, like most of the data generated while evaluating Scratch blocks.
-
-	Data returned (except for the hash tables) by the interface is also always copies of the
-	actual data, because the actual data is only to be directly modified by this module.
 **/
 
 #include <stdio.h>
+#include "ut/uthash.h"
+#include "ut/utarray.h"
 
 #include "types/primitives.h"
 #include "types/value.h"
 #include "types/variables.h"
 
-#include "ut/uthash.h"
 #include "value.h"
 #include "variables.h"
 
@@ -43,34 +38,49 @@
 
 const Value defaultValue = {{.floating = 0.0}, FLOATING};
 
+static void value_copy(Value *dst, Value *src) {
+	if(src->type == STRING) {
+		dst->type = STRING;
+		uint16 l = strlen(src->data.string)*sizeof(char);
+		dst->data.string = malloc(l);
+		memcpy(dst->data.string, src->data.string, l);
+	}
+	else
+		memcpy(dst, src, sizeof(Value));
+}
+
+static void value_dtor(Value *v) {
+	if(v->type == STRING)
+		free(v->data.string);
+}
+
 /** Variables **/
 
 /* Takes an already allocated Variable, initializes it, and adds it to the given hash table of Variables. */
-void variable_init(Variable **variables, Variable *const variable, const char *const name, const Value *const value) {
+void variable_init(Variable **variables, Variable *const variable, const char *const name, const uint16 nameLen, const Value *const value) {
 	variable->name = extractString(name);
 	if(value == NULL)
 		variable->value = defaultValue;
 	else
 		variable->value = extractSimplifiedValue(value);
-	HASH_ADD_STR(*variables, name, variable);
+	HASH_ADD_KEYPTR(hh, *variables, variable->name, nameLen, variable);
 }
 
 /* Same as variable_add except it allocates the new variable */
-void variable_new(Variable **variables, const char *const name, const Value *const value) {
+void variable_new(Variable **variables, const char *const name, const uint16 nameLen, const Value *const value) {
 	Variable *const newVar = malloc(sizeof(Variable));
 	if(newVar == NULL) {
 		printf("[ERROR]Could not allocate new variable \"%s\"\n", name);
 		return;
 	}
-	variable_init(variables, malloc(sizeof(Variable)), name, value);
+	variable_init(variables, malloc(sizeof(Variable)), name, nameLen, value);
 }
 
 void freeVariables(Variable **variables) {
 	Variable *current, *tmp;
 	HASH_ITER(hh, *variables, current, tmp) {
 		HASH_DEL(*variables, current);
-		if(current->value.type == STRING)
-			free(current->value.data.string);
+		value_dtor(&current->value);
 		free(current);
 	}
 }
@@ -81,6 +91,7 @@ bool setVariable(Variable **variables, const char *const name, const Value *cons
 	HASH_FIND_STR(*variables, name, var);
 	if(var == NULL)
 		return true;
+	value_dtor(&var->value);
 	var->value = extractSimplifiedValue(newValue);
 	return false;
 }
@@ -98,252 +109,139 @@ bool getVariable(Variable **variables, const char *const name, Value *const retu
 
 /* Lists */
 
-void list_init(List **lists, List *const list, const char *const name) {
+static UT_icd value_icd = {sizeof(Value), NULL, (ctor_f*)value_copy, (dtor_f*)value_dtor};
+
+void list_init(List **lists, List *const list, const char *const name, const uint16 nameLen) {
 	list->name = extractString(name);
-	list->length = 0;
-	list->first = list->last = NULL;
-	HASH_ADD_STR(*lists, name, list);
+	utarray_init(&list->contents, &value_icd);
+	HASH_ADD_KEYPTR(hh, *lists, list->name, nameLen, list);
 }
 
-List* list_new(List **lists, const char *const name) {
+UT_array* list_new(List **lists, const char *const name, const uint16 nameLen) {
 	List *const list = malloc(sizeof(List));
 	if(list == NULL) {
 		printf("[ERROR]Could not allocate list \"%s\"\n", name);
 		return NULL;
 	}
-	list_init(lists, list, name);
-	return list;
-}
-
-static inline void freeListElement(ListElement *listElement) {
-	if(listElement->value.type == STRING)
-		free(listElement->value.data.string);
-	free(listElement);
+	list_init(lists, list, name, nameLen);
+	return &list->contents;
 }
 
 void freeLists(List **lists) {
-	List *current, *tmp;
-	ListElement *currente, *nexte;
-	HASH_ITER(hh, *lists, current, tmp) { // delete each list from the hash table
-		HASH_DEL(*lists, current);
-
-		nexte = current->first;
-		while(nexte != NULL) { // free each list element
-			currente = nexte;
-			nexte = currente->next;
-			freeListElement(currente);
-		}
-
+	List *list, *tmp;
+	HASH_ITER(hh, *lists, list, tmp) { // delete each list from the hash table
+		utarray_done(&list->contents);
 		//printf("FREE:   %p\n", current);
-		free(current); // free each list
+		HASH_DEL(*lists, list);
+		free(list); // free each list
 	}
 }
 
-bool getListPtr(List **lists, const char *const name, List **const returnList) {
+bool getListContents(List **lists, const char *const name, UT_array **const returnContents) {
 	List *list;
 	HASH_FIND_STR(*lists, name, list);
 	if(list == NULL)
 		return true;
-	*returnList = list;
+	*returnContents = &list->contents;
 	return false;
 }
 
-Value listGetFirst(const List *const list) {
-	if(list->first == NULL)
+Value listGetFirst(const UT_array *const list) {
+	if(utarray_len(list) == 0)
 		return defaultValue;
 	else
-		return list->first->value;
+		return *(Value*)utarray_front(list);
 }
 
-Value listGetLast(const List *const list) {
-	if(list->last == NULL)
+Value listGetLast(const UT_array *const list) {
+	if(utarray_len(list) == 0)
 		return defaultValue;
 	else
-		return list->last->value;
+		return *(Value*)utarray_back(list);
 }
 
-static inline ListElement* findListElement(const List *const list, const uint32 index) {
-	uint32 i = 0;
-	ListElement *element = list->first;
-	//printf("%p %i\n", element, i);
-	while(i < index && element != NULL) {
-		++i;
-		element = element->next;
-		//printf("%p %i\n", element, i);
-	}
-	return element;
-}
-
-Value listGet(const List *const list, const uint32 index) {
-	ListElement *element = findListElement(list, index);
-	if(element == NULL)
+Value listGet(const UT_array *const list, const uint32 index) {
+	if(utarray_len(list) > index)
+		return *(Value*)utarray_eltptr(list, index);
+	else
 		return defaultValue;
-	else
-		return element->value;
 }
 
-void listAppend(List *list, const Value *const value) {
-	ListElement *newElement = malloc(sizeof(ListElement));
-	//if(newElement == NULL)
-	//puts("FALILED");
-	newElement->value = extractSimplifiedValue(value);
-	newElement->next = NULL;
-	if(list->length == 0)
-		list->first = newElement;
-	else
-		list->last->next = newElement;
-	list->last = newElement;
-	if(list->length != UINT32_MAX)
-		++list->length;
+void listAppend(UT_array *list, const Value *const value) {
+	utarray_push_back(list, (void*)value);
 }
 
-void listPrepend(List *list, const Value *const value) {
-	ListElement *newElement = malloc(sizeof(ListElement));
-	//if(newElement == NULL)
-	//puts("FALILED");
-	newElement->value = extractSimplifiedValue(value);
-	newElement->next = list->first;
-	list->first = newElement;
-	if(list->length != UINT32_MAX)
-		++list->length;
+void listPrepend(UT_array *list, const Value *const value) {
+	utarray_insert(list, (void*)value, 0);
 }
 
-void listInsert(List *list, const Value *const value, const uint32 index) {
-	ListElement *previous = findListElement(list, index-1); // index-1 is why there is a special case for index=0
-	if(previous == NULL) // don't add the element if it is out of bounds of the list
-		return;
-	ListElement *newElement = malloc(sizeof(ListElement));
-	newElement->value = extractSimplifiedValue(value);
-	newElement->next = previous->next;
-	previous->next = newElement;
-	if(list->length != UINT32_MAX)
-		++list->length;
+void listInsert(UT_array *list, const Value *const value, const uint32 index) {
+	utarray_insert(list, (void*)value, index);
 }
 
-void listSetFirst(List *list, const Value *const newValue) {
-	ListElement *element = list->first;
-	if(element == NULL)
-		return;
-	else
-		element->value = extractSimplifiedValue(newValue);
+void listSetFirst(UT_array *list, const Value *const newValue) {
+	Value *elt = (Value*)utarray_front(list);
+	value_dtor(elt);
+	*elt = *newValue;
 }
 
-void listSetLast(List *list, const Value *const newValue) {
-	ListElement *element = list->last;
-	if(element == NULL)
-		return;
-	else
-		element->value = extractSimplifiedValue(newValue);
+void listSetLast(UT_array *list, const Value *const newValue) {
+	Value *elt = (Value*)utarray_back(list);
+	value_dtor(elt);
+	*elt = *newValue;
 }
 
-void listSet(List *list, const Value *const newValue, const uint32 index) {
-	ListElement *element = findListElement(list, index);
-	if(element == NULL)
-		return;
-	else
-		element->value = extractSimplifiedValue(newValue);
+void listSet(UT_array *list, const Value *const newValue, const uint32 index) {
+	Value *elt = (Value*)utarray_eltptr(list, index);
+	value_dtor(elt);
+	*elt = *newValue;
 }
 
-void listDeleteFirst(List *list) {
-	if(list->first != NULL) {
-		ListElement *first = list->first;
-		list->first = list->first->next;
-		freeListElement(first);
-		if(list->first == NULL) // if the last element was freed, then list->last needs to be NULL
-			list->last = NULL;
-		if(list->length != UINT32_MAX)
-			--list->length;
-	}
+void listDeleteFirst(UT_array *list) {
+	utarray_erase(list, 0, 1);
 }
 
-void listDeleteLast(List *list) {
-	if(list->first != NULL) {
-		if(list->length == 1) { // if there is no elements before it
-			freeListElement(list->last);
-			list->first = list->last = NULL;
-		}
-		else {
-			ListElement *previous = findListElement(list, list->length-2);
-			ListElement *last = list->last;
-			previous->next = NULL;
-			list->last = previous;
-			freeListElement(last);
-		}
-		if(list->length != UINT32_MAX)
-			--list->length;
-	}
+void listDeleteLast(UT_array *list) {
+	utarray_pop_back(list);
 }
 
-void listDelete(List *list, const uint32 index) {
-	if(list->first != NULL) {
-		if(index == 1)
-			listDeleteFirst(list);
-		else {
-			ListElement *previous = findListElement(list, index-2);
-			if(previous == NULL)
-				return;
-			ListElement *element = previous->next;
-			if(element == NULL)
-				return;
-			previous->next = element->next;
-			if(previous->next == NULL)
-				list->last = previous;
-			freeListElement(element);
-			if(list->length != UINT32_MAX)
-				--list->length;
-		}
-	}
+void listDelete(UT_array *list, const uint32 index) {
+	utarray_erase(list, index, 1);
 }
 
-void listDeleteAll(List *list) {
-	ListElement *current, *next = list->first;
-	while(next != NULL) {
-		current = next;
-		next = current->next;
-		freeListElement(current);
-	}
-	list->first = list->last = NULL;
-	list->length = 0;
+void listDeleteAll(UT_array *list) {
+	utarray_clear(list);
 }
 
-bool listContainsFloating(const List *const list, const double floating) {
-	uint32 i;
-	ListElement *element = list->first;
-
-	for(i = 0; i < list->length; ++i) {
-		if(element->value.type == FLOATING) { // based on the fact that before a value is stored, it is simplified to a float if possible, so the only strings will be ones that can't be numbers
-			if(element->value.data.floating == floating)
+bool listContainsFloating(const UT_array *const list, const double floating) {
+	for(uint32 i = 0; i < utarray_len(list); ++i) {
+		Value *v = (Value*)utarray_eltptr(list, i);
+		if(v->type == FLOATING) { // based on the fact that before a value is stored, it is simplified to a float if possible, so the only strings will be ones that can't be numbers
+			if(v->data.floating == floating)
 				return true;
 		}
-		element = element->next;
 	}
 	return false;
 }
 
-bool listContainsBoolean(const List *const list, const bool boolean) {
-	uint32 i;
-	ListElement *element = list->first;
-
-	for(i = 0; i < list->length; ++i) {
-		if(element->value.type == BOOLEAN) {
-			if(element->value.data.boolean == boolean)
+bool listContainsBoolean(const UT_array *const list, const bool boolean) {
+	for(uint32 i = 0; i < utarray_len(list); ++i) {
+		Value *v = (Value*)utarray_eltptr(list, i);
+		if(v->type == BOOLEAN) {
+			if(v->data.boolean == boolean)
 				return true;
 		}
-		element = element->next;
 	}
 	return false;
 }
 
-bool listContainsString(const List *const list, const char *const string) {
-	uint32 i;
-	ListElement *element = list->first;
-
-	for(i = 0; i < list->length; ++i) {
-		if(element->value.type == STRING) {
-			if(strcasecmp(element->value.data.string, string))
+bool listContainsString(const UT_array *const list, const char *const string) {
+	for(uint32 i = 0; i < utarray_len(list); ++i) {
+		Value *v = (Value*)utarray_eltptr(list, i);
+		if(v->type == STRING) {
+			if(strcmp(v->data.string, string) == 0)
 				return true;
 		}
-		element = element->next;
 	}
 	return false;
 }

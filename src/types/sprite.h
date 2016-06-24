@@ -17,6 +17,8 @@ struct SpriteContext {
 	struct List *lists; // a hash table of Scratch lists
 
 	struct ProcedureLink *procedureHashTable; // table of pointers to procedures to be accessed with hashes
+	ThreadLink *const *whenClonedThreads;
+	uint16 nWhenClonedThreads;
 
 	int16 xpos, ypos, direction;
 	uint16 layer, costumeNumber, size,

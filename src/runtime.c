@@ -8,13 +8,14 @@
 #include <time.h>
 #include <cmph.h>
 
+#include "ut/uthash.h"
+#include "ut/utarray.h"
 #include "ut/dynarray.h"
 
 #include "types/primitives.h"
 #include "types/value.h"
 #include "types/block.h"
 #include "types/thread.h"
-#include "types/variables.h"
 #include "types/sprite.h"
 
 #include "runtime.h"

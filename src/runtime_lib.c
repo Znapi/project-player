@@ -364,10 +364,10 @@ BF(stop_scripts) {
 
 BF(get_variable) {
 	char *name;
-	toString(arg+0, &name);
+	const uint16 nameLen = toString(arg+0, &name);
 	if(getVariable(&activeSprite->variables, name, reportSlot)) {
 		if(getVariable(&stage->variables, name, reportSlot)) {
-			variable_new(&activeSprite->variables, name, NULL);
+			variable_new(&activeSprite->variables, name, nameLen, NULL);
 		}
 	}
 	return NULL;
@@ -375,23 +375,23 @@ BF(get_variable) {
 
 BF(variable_set) {
 	char *name;
-	toString(arg+0, &name);
+	const uint16 nameLen = toString(arg+0, &name);
 	if(setVariable(&activeSprite->variables, name, arg+1)) {
 		if(setVariable(&stage->variables, name, arg+1))
-			variable_new(&activeSprite->variables, name, arg+1);
+			variable_new(&activeSprite->variables, name, nameLen, arg+1);
 	}
 	return block->p.next;
 }
 
 BF(variable_change) {
 	char *name;
-	toString(arg+0, &name);
+	const uint16 nameLen = toString(arg+0, &name);
 
 	Value value;
 	Variable **variables = &activeSprite->variables;
 	if(getVariable(&activeSprite->variables, name, &value)) {
 		if(getVariable(&stage->variables, name, &value))
-			variable_new(&activeSprite->variables, name, NULL);
+			variable_new(&activeSprite->variables, name, nameLen, NULL);
 		else
 			variables = &stage->variables;
 	}
@@ -404,51 +404,46 @@ BF(variable_change) {
 	return block->p.next;
 }
 
-#define getOrCreateList(name, list) {										\
-		if(getListPtr(&activeSprite->lists, name, &list)) {	\
-			if(getListPtr(&stage->lists, name, &list))				\
-				list = list_new(&activeSprite->lists, name);		\
-		}																										\
+#define getOrCreateList(name, nameLen, list) {										\
+		if(getListContents(&activeSprite->lists, name, &list)) {			\
+			if(getListContents(&stage->lists, name, &list))							\
+				list = list_new(&activeSprite->lists, name, nameLen);			\
+		}																															\
 	}
 
 // TODO: this might be inefficient
 BF(list_getContents) {
 	char *str;
-	toString(arg+0, &str);
+	uint16 nRequiredChars = toString(arg+0, &str);
 
-	List *list;
-	getOrCreateList(str, list);
+	UT_array *list;
+	getOrCreateList(str, nRequiredChars, list);
 
-	char **elements = malloc(list->length*sizeof(char**));
+	char **elements = malloc(utarray_len(list)*sizeof(char**));
 	if(elements == NULL) {
 		reportSlot->data.floating = 0.0;
 		reportSlot->type = FLOATING;
 		puts("[ERROR]Could not allocate list of strings in bf_list_getContents.");
 		return NULL;
 	}
-	uint32 i = 0, nRequiredChars = 0;
-	ListElement *listElement = list->first;
+	nRequiredChars = 0;
+	for(uint32 i = 0; i < utarray_len(list); ++i)
+		nRequiredChars += toString((Value*)utarray_eltptr(list, i), elements+i);
 
-	while(listElement != NULL) {
-		nRequiredChars += toString(&listElement->value, elements+i);
-		listElement = listElement->next;
-		++i;
-	}
-
-	if(nRequiredChars == list->length)
+	if(nRequiredChars == utarray_len(list))
 		++nRequiredChars; // make room for terminator
 	else
-		nRequiredChars += list->length;
+		nRequiredChars += utarray_len(list);
 	str = strpool_alloc(nRequiredChars);
 	reportSlot->data.string = str;
 	reportSlot->type = STRING;
 
-	if(nRequiredChars == list->length + 1) { // if each element is a single character
-		for(i = 0; i < list->length; ++i)
+	if(nRequiredChars == utarray_len(list) + 1) { // if each element is a single character
+		for(uint32 i = 0; i < utarray_len(list); ++i)
 			str = stpcpy(str, elements[i]);
 	}
 	else {
-		for(i = 0; i < list->length; ++i) {
+		for(uint32 i = 0; i < utarray_len(list); ++i) {
 			str = stpcpy(str, elements[i]);
 			*(str++) = ' ';
 		}
@@ -460,18 +455,18 @@ BF(list_getContents) {
 
 BF(list_append) {
 	char *name;
-	toString(arg+1, &name);
-	List *list;
-	getOrCreateList(name, list);
+	const uint16 nameLen = toString(arg+1, &name);
+	UT_array *list;
+	getOrCreateList(name, nameLen, list);
 	listAppend(list, arg+0);
 	return block->p.next;
 }
 
 BF(list_delete) {
 	char *name;
-	toString(arg+1, &name);
-	List *list;
-	getOrCreateList(name, list);
+	const uint16 nameLen = toString(arg+1, &name);
+	UT_array *list;
+	getOrCreateList(name, nameLen, list);
 	if(arg[0].type == STRING) {
 		switch(arg[1].data.string[0]) {
 		case '1': listDeleteFirst(list); return block->p.next;
@@ -487,15 +482,15 @@ BF(list_delete) {
 
 BF(list_insert) {
 	char *name;
-	toString(arg+1, &name);
-	List *list;
-	getOrCreateList(name, list);
+	const uint16 nameLen = toString(arg+1, &name);
+	UT_array *list;
+	getOrCreateList(name, nameLen, list);
 	if(arg[0].type == STRING) {
 		switch(arg[1].data.string[0]) {
 		case '1': listPrepend(list, arg+2); return block->p.next;
 		case 'l': listAppend(list, arg+2); return block->p.next;
 		case 'r':
-			listInsert(list, arg+2, (uint32)round((double)rand()/RAND_MAX * list->length));
+			listInsert(list, arg+2, (uint32)round((double)rand()/RAND_MAX * utarray_len(list)));
 			return block->p.next;
 		}
 	}
@@ -507,15 +502,15 @@ BF(list_insert) {
 
 BF(list_setElement) {
 	char *name;
-	toString(arg+1, &name);
-	List *list;
-	getOrCreateList(name, list);
+	const uint16 nameLen = toString(arg+1, &name);
+	UT_array *list;
+	getOrCreateList(name, nameLen, list);
 	if(arg[0].type == STRING) {
 		switch(arg[1].data.string[0]) {
 		case '1': listSetFirst(list, arg+2); return block->p.next;
 		case 'l': listSetLast(list, arg+2); return block->p.next;
 		case 'r':
-			listSet(list, arg+2, (uint32)round((double)rand()/RAND_MAX * list->length));
+			listSet(list, arg+2, (uint32)round((double)rand()/RAND_MAX * utarray_len(list)));
 			return block->p.next;
 		}
 	}
@@ -527,15 +522,15 @@ BF(list_setElement) {
 
 BF(list_getElement) {
 	char *name;
-	toString(arg+1, &name);
-	List *list;
-	getOrCreateList(name, list);
+	const uint16 nameLen = toString(arg+1, &name);
+	UT_array *list;
+	getOrCreateList(name, nameLen, list);
 	if(arg[0].type == STRING) {
 		switch(arg[1].data.string[0]) {
 		case '1': *reportSlot = listGetFirst(list); return block->p.next;
 		case 'l': *reportSlot = listGetLast(list); return block->p.next;
 		case 'r':
-			*reportSlot = listGet(list, (uint32)round((double)rand()/RAND_MAX * list->length));
+			*reportSlot = listGet(list, (uint32)round((double)rand()/RAND_MAX * utarray_len(list)));
 			return block->p.next;
 		}
 	}
@@ -547,9 +542,9 @@ BF(list_getElement) {
 
 BF(list_contains) {
 	char *name;
-	toString(arg+0, &name);
-	List *list;
-	getOrCreateList(name, list);
+	const uint16 nameLen = toString(arg+0, &name);
+	UT_array *list;
+	getOrCreateList(name, nameLen, list);
 	Value value = extractSimplifiedValue(arg+1);
 	switch(value.type) {
 	case FLOATING:
@@ -560,6 +555,7 @@ BF(list_contains) {
 		break;
 	case STRING:
 		reportSlot->data.boolean = listContainsString(list, value.data.string);
+		free(value.data.string);
 		break;
 	}
 	reportSlot->type = BOOLEAN;
@@ -568,11 +564,11 @@ BF(list_contains) {
 
 BF(list_length) {
 	char *name;
-	toString(arg+0, &name);
-	List *list;
-	getOrCreateList(name, list);
+	const uint16 nameLen = toString(arg+0, &name);
+	UT_array *list;
+	getOrCreateList(name, nameLen, list);
 	reportSlot->type = FLOATING;
-	reportSlot->data.floating = (double)list->length;
+	reportSlot->data.floating = (double)utarray_len(list);
 	return NULL;
 }
 

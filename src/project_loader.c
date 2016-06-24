@@ -17,6 +17,7 @@
 #include "ut/uthash.h"
 
 #include "jsmn/jsmn.h"
+#include "ut/utarray.h"
 #include "ut/dynarray.h"
 
 #include "types/primitives.h"
@@ -161,6 +162,7 @@ static Variable* parseVariables(void) {
 	Variable *variables = NULL;
 
 	char *name;
+	uint16 nameLen;
 	Value value;
 
 	do { // for each variable object
@@ -171,6 +173,7 @@ static Variable* parseVariables(void) {
 			if(tokceq("name")) {
 				++pos; // advance to value
 				tokcext(name);
+				nameLen = charBuffer->i-1;
 			}
 			else if(tokceq("value")) {
 				++pos; // advance to value
@@ -180,7 +183,7 @@ static Variable* parseVariables(void) {
 			else // isPersistent
 				++pos;
 		} while(--propertiesToGo != 0);
-		variable_init(&variables, variableBuffer+i, name, &value);
+		variable_init(&variables, variableBuffer+i, name, nameLen, &value);
 		free(name);
 		value_free(value);
 		++i;
@@ -217,12 +220,12 @@ static List* parseLists(void) {
 			else
 				++pos; // advance to value
 		} while(--propertiesToGo != 0);
-		list_init(&lists, listBuffer+i, charBuffer->d);
+		list_init(&lists, listBuffer+i, charBuffer->d, charBuffer->i-1);
 		for(propertiesToGo = valueToken->size; propertiesToGo != 0; --propertiesToGo) {
 			++valueToken;
 			parseString(gjson(*valueToken), toklen(*valueToken));
 			value = strnToValue(charBuffer->d, charBuffer->i-1);
-			listAppend(listBuffer+i, &value);
+			listAppend(&listBuffer[i].contents, &value);
 			value_free(value);
 		}
 		++i;
@@ -420,15 +423,18 @@ static inline dynarray* addBroadcast(char *const msg, const uint32 msgLen) {
 	return newBroadcast->threads;
 }
 
-struct ProcedureLink *procedureHashTable;
-
 static dynarray *greenFlagThreads;
+
+// sprite specific hat collections
+struct ProcedureLink *procedureHashTable;
+dynarray *whenClonedThreads;
 
 static ThreadLink* parseScripts(SpriteContext *sprite) {
 	dynarray *threads;
 	Block **scriptPointer;
 	dynarray_new(threads, sizeof(ThreadLink));
 	procedureHashTable = NULL;
+	dynarray_clear(whenClonedThreads);
 
 	++pos; // advance to array of scripts
 	uint16 nScriptsToGo = TOKC.size;
@@ -447,7 +453,7 @@ static ThreadLink* parseScripts(SpriteContext *sprite) {
 		pos += 2; // advance to opstring of first block
 
 		bool isProcedure = false;
-		if(!tokceq("procDef")) {
+		if(!tokceq("procDef")) { // TODO: use a hash table rather than repeatedly comparing strings
 			ThreadLink tmpThread = {
 				{0},
 				sprite,
@@ -468,6 +474,9 @@ static ThreadLink* parseScripts(SpriteContext *sprite) {
 				dynarray *broadcastThreads = addBroadcast(msg, charBuffer->i - 1);
 				dynarray_push_back(broadcastThreads, &newThread);
 				--pos;
+			}
+			else if(tokceq("whenCloned")) {
+				dynarray_push_back(whenClonedThreads, &newThread);
 			}
 			else { // it is not a hat
 				pos -= 4; // go back to script ([xpos, ypos, [blocks...]])
@@ -543,6 +552,8 @@ static bool attemptToParseSpriteProperty(SpriteContext *sprite) {
 		puts("scripts");
 		sprite->threads = parseScripts(sprite);
 		sprite->procedureHashTable = procedureHashTable;
+		sprite->nWhenClonedThreads = dynarray_len(whenClonedThreads);
+		dynarray_extract(whenClonedThreads, (void**)&sprite->whenClonedThreads);
 		return true;
 	}
 	else if(tokceq("objName")) {
@@ -557,8 +568,14 @@ static bool attemptToParseSpriteProperty(SpriteContext *sprite) {
 static inline void initializeSpriteContext(SpriteContext *const c, const enum SpriteScope scope) {
 	c->name = NULL;
 	c->scope = scope;
+
 	c->variables = NULL;
 	c->lists = NULL;
+
+	c->procedureHashTable = NULL;
+	c->whenClonedThreads = NULL;
+	c->nWhenClonedThreads = 0;
+
 	c->xpos = c->ypos = c->layer = c->costumeNumber = 0;
 	c->direction = 90; c->size = c->volume = 100; c->tempo = 60;
 	c->effects.color = c->effects.brightness = c->effects.ghost
@@ -584,6 +601,7 @@ void** loadProject(const char *const projectJson, const size_t jsonLength, ufast
 	dynarray_new(charBuffer, sizeof(char));
 
 	dynarray_new(greenFlagThreads, sizeof(ThreadLink*));
+	dynarray_new(whenClonedThreads, sizeof(ThreadLink*));
 
 	dynarray *sprites;
 	dynarray_new(sprites, sizeof(SpriteContext));
@@ -635,6 +653,8 @@ void** loadProject(const char *const projectJson, const size_t jsonLength, ufast
 	unsigned nGreenFlagThreads = dynarray_len(greenFlagThreads);
 	dynarray_finalize(greenFlagThreads, (void**)&greenFlagThreadsFinalized);
 	setGreenFlagThreads(greenFlagThreadsFinalized, nGreenFlagThreads);
+
+	dynarray_free(whenClonedThreads);
 
 	setBroadcastsHashTable(broadcastsHashTable);
 
