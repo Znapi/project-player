@@ -314,7 +314,7 @@ void freeBroadcastsHashTable(void) {
 }
 
 /* returns a boolean saying whether or not the current thread was restarted */
-static bool startBroadcastThreads(const char *const msg, const uint16 msgLen, struct BroadcastThreads **const nullifyOnRestart) {
+static bool startBroadcastThreads(const char *const msg, const size_t msgLen, struct BroadcastThreads **const nullifyOnRestart) {
 	struct BroadcastThreads *broadcastThreadsLink;
 	HASH_FIND(hh, broadcastsHashTable, msg, msgLen,  broadcastThreadsLink);
 	if(broadcastThreadsLink == NULL) {
@@ -351,7 +351,7 @@ static bool startBroadcastThreads(const char *const msg, const uint16 msgLen, st
 	are freed at the end of the procedure.
 **/
 
-static const struct ProcedureLink *getProcedure(const char *const label, const uint32 labelLen) {
+static const struct ProcedureLink *getProcedure(const char *const label, const size_t labelLen) {
 	struct ProcedureLink *procLink;
 	HASH_FIND(hh, activeSprite->procedureHashTable, label, labelLen, procLink);
 	return procLink;

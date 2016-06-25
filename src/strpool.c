@@ -18,8 +18,17 @@
 #include "strpool.h"
 
 /* makes a copy of a string, but not in the pool */
-char* extractString(const char *const str) {
-	size_t length = strlen(str);
+char* extractString(const char *const str, size_t *const len) {
+	size_t length;
+	if(len == NULL)
+		length = strlen(str);
+	else if(*len == 0) {
+		length = strlen(str);
+		*len = length;
+	}
+	else
+		length = *len;
+
 	char *const newString = malloc(length+1);
 	memcpy(newString, str, length);
 	newString[length] = '\0';
@@ -33,7 +42,7 @@ struct Link {
 static struct Link *listHead = NULL;
 
 /* allocates a string that doesn't make the caller responsible for freeing it, it's pointer is recorded and is freed automatically */
-char* strpool_alloc(const uint32 length) {
+char* strpool_alloc(const size_t length) {
 	struct Link *previousItem = listHead;
 	/*puts("---->");
 	previousItem = listHead;

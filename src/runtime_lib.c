@@ -400,7 +400,7 @@ BF(destroy_clone) {
 
 BF(get_variable) {
 	char *name;
-	const uint16 nameLen = toString(arg+0, &name);
+	const size_t nameLen = toString(arg+0, &name);
 	if(getVariable(&activeSprite->variables, name, reportSlot)) {
 		if(getVariable(&stage->variables, name, reportSlot)) {
 			variable_new(&activeSprite->variables, name, nameLen, NULL);
@@ -411,7 +411,7 @@ BF(get_variable) {
 
 BF(variable_set) {
 	char *name;
-	const uint16 nameLen = toString(arg+0, &name);
+	const size_t nameLen = toString(arg+0, &name);
 	if(setVariable(&activeSprite->variables, name, arg+1)) {
 		if(setVariable(&stage->variables, name, arg+1))
 			variable_new(&activeSprite->variables, name, nameLen, arg+1);
@@ -421,7 +421,7 @@ BF(variable_set) {
 
 BF(variable_change) {
 	char *name;
-	const uint16 nameLen = toString(arg+0, &name);
+	const size_t nameLen = toString(arg+0, &name);
 
 	Value value;
 	Variable **variables = &activeSprite->variables;
@@ -450,7 +450,7 @@ BF(variable_change) {
 // TODO: this might be inefficient
 BF(list_getContents) {
 	char *str;
-	uint16 nRequiredChars = toString(arg+0, &str);
+	size_t nRequiredChars = toString(arg+0, &str);
 
 	UT_array *list;
 	getOrCreateList(str, nRequiredChars, list);
@@ -491,7 +491,7 @@ BF(list_getContents) {
 
 BF(list_append) {
 	char *name;
-	const uint16 nameLen = toString(arg+1, &name);
+	const size_t nameLen = toString(arg+1, &name);
 	UT_array *list;
 	getOrCreateList(name, nameLen, list);
 	listAppend(list, arg+0);
@@ -500,7 +500,7 @@ BF(list_append) {
 
 BF(list_delete) {
 	char *name;
-	const uint16 nameLen = toString(arg+1, &name);
+	const size_t nameLen = toString(arg+1, &name);
 	UT_array *list;
 	getOrCreateList(name, nameLen, list);
 	if(arg[0].type == STRING) {
@@ -518,7 +518,7 @@ BF(list_delete) {
 
 BF(list_insert) {
 	char *name;
-	const uint16 nameLen = toString(arg+1, &name);
+	const size_t nameLen = toString(arg+1, &name);
 	UT_array *list;
 	getOrCreateList(name, nameLen, list);
 	if(arg[0].type == STRING) {
@@ -538,7 +538,7 @@ BF(list_insert) {
 
 BF(list_setElement) {
 	char *name;
-	const uint16 nameLen = toString(arg+1, &name);
+	const size_t nameLen = toString(arg+1, &name);
 	UT_array *list;
 	getOrCreateList(name, nameLen, list);
 	if(arg[0].type == STRING) {
@@ -558,7 +558,7 @@ BF(list_setElement) {
 
 BF(list_getElement) {
 	char *name;
-	const uint16 nameLen = toString(arg+1, &name);
+	const size_t nameLen = toString(arg+1, &name);
 	UT_array *list;
 	getOrCreateList(name, nameLen, list);
 	if(arg[0].type == STRING) {
@@ -578,7 +578,7 @@ BF(list_getElement) {
 
 BF(list_contains) {
 	char *name;
-	const uint16 nameLen = toString(arg+0, &name);
+	const size_t nameLen = toString(arg+0, &name);
 	UT_array *list;
 	getOrCreateList(name, nameLen, list);
 	Value value = extractSimplifiedValue(arg+1);
@@ -600,7 +600,7 @@ BF(list_contains) {
 
 BF(list_length) {
 	char *name;
-	const uint16 nameLen = toString(arg+0, &name);
+	const size_t nameLen = toString(arg+0, &name);
 	UT_array *list;
 	getOrCreateList(name, nameLen, list);
 	reportSlot->type = FLOATING;
@@ -612,7 +612,7 @@ BF(list_length) {
 
 BF(call) {
 	char *procName;
-	const uint32 procNameLen = toString(arg+0, &procName);
+	const size_t procNameLen = toString(arg+0, &procName);
 	const struct ProcedureLink *const procedure = getProcedure(procName, procNameLen);
 
 	dynarray_push_back(activeThread->nParametersStack, (void*)&procedure->nParameters);
@@ -633,7 +633,7 @@ BF(getParam) {
 
 BF(broadcast) {
 	char *msg;
-	uint16 msgLen = toString(arg+0, &msg);
+	size_t msgLen = toString(arg+0, &msg);
 	if(startBroadcastThreads(msg, msgLen, NULL)) {
 		doYield = true;
 		return activeThread->topBlock;
@@ -656,7 +656,7 @@ BF(broadcast) {
 BF(broadcast_and_wait) {
 	if(allocTmpData(block))	{
 		char *msg;
-		uint16 msgLen = toString(arg+0, &msg);
+		size_t msgLen = toString(arg+0, &msg);
 		doYield = true;
 		if(startBroadcastThreads(msg, msgLen, (struct BroadcastThreads**)&getTmpDataPointer()->p)) // set the counter to the number of broadcast threads
 			return activeThread->topBlock;

@@ -89,7 +89,7 @@ static iconv_t charCd;
 static dynarray *charBuffer; // dynarray of chars to be reused for temporarily storing strings
 
 /* Parses the string starting at str of length len into charBuffer. */
-static void parseString(const char *str, const unsigned len) {
+static void parseString(const char *str, const size_t len) {
 	dynarray_clear(charBuffer);
 	dynarray_ensure_size(charBuffer, len);
 	const char *const end = str+len;
@@ -162,7 +162,7 @@ static Variable* parseVariables(void) {
 	Variable *variables = NULL;
 
 	char *name;
-	uint16 nameLen;
+	size_t nameLen;
 	Value value;
 
 	do { // for each variable object

@@ -3,15 +3,15 @@
 typedef struct Variable Variable;
 typedef struct List List;
 
-extern void variable_init(Variable **variables, Variable *const variable, const char *const name, const uint16 nameLen, const Value *const value);
-extern void variable_new(Variable **variables, const char *const name, const uint16 nameLen, const Value *const value);
+extern void variable_init(Variable **variables, Variable *const variable, const char *const name, const size_t nameLen, const Value *const value);
+extern void variable_new(Variable **variables, const char *const name, const size_t nameLen, const Value *const value);
 extern void freeVariables(Variable **variables);
 extern Variable* copyVariables(const Variable *const *const variables);
 extern bool setVariable(Variable **variables, const char *name, const Value *const newValue);
 extern bool getVariable(Variable **variables, const char *const name, Value *const returnValue);
 
-extern void list_init(List **lists, List *list, const char *const name, const uint16 nameLen);
-extern UT_array* list_new(List **lists, const char *const name, const uint16 nameLen);
+extern void list_init(List **lists, List *list, const char *const name, const size_t nameLen);
+extern UT_array* list_new(List **lists, const char *const name, const size_t nameLen);
 extern void freeLists(List **lists);
 extern List *copyLists(const List *const *const Lists);
 extern bool getListContents(List **lists, const char *const name, UT_array **const returnContents);

@@ -41,7 +41,7 @@ const Value defaultValue = {{.floating = 0.0}, FLOATING};
 static void value_copy(Value *dst, Value *src) {
 	if(src->type == STRING) {
 		dst->type = STRING;
-		uint16 l = strlen(src->data.string)*sizeof(char);
+		size_t l = strlen(src->data.string)*sizeof(char);
 		dst->data.string = malloc(l);
 		memcpy(dst->data.string, src->data.string, l);
 	}
@@ -57,8 +57,8 @@ static void value_dtor(Value *v) {
 /** Variables **/
 
 /* Takes an already allocated Variable, initializes it, and adds it to the given hash table of Variables. */
-void variable_init(Variable **variables, Variable *const variable, const char *const name, const uint16 nameLen, const Value *const value) {
-	variable->name = extractString(name);
+void variable_init(Variable **variables, Variable *const variable, const char *const name, const size_t nameLen, const Value *const value) {
+	variable->name = extractString(name, (size_t*)&nameLen);
 	if(value == NULL)
 		variable->value = defaultValue;
 	else
@@ -67,7 +67,7 @@ void variable_init(Variable **variables, Variable *const variable, const char *c
 }
 
 /* Same as variable_add except it allocates the new variable */
-void variable_new(Variable **variables, const char *const name, const uint16 nameLen, const Value *const value) {
+void variable_new(Variable **variables, const char *const name, const size_t nameLen, const Value *const value) {
 	Variable *const newVar = malloc(sizeof(Variable));
 	if(newVar == NULL) {
 		printf("[ERROR]Could not allocate new variable \"%s\"\n", name);
@@ -90,9 +90,10 @@ Variable* copyVariables(const Variable *const *const variables) {
 	const Variable *src = *variables;
 	for(uint16 i = HASH_COUNT(*variables); i != 0; --i) {
 		Variable *new = malloc(sizeof(Variable));
-		new->name = extractString(src->name); // TODO: remove repetative calculation of length
+		size_t len = 0;
+		new->name = extractString(src->name, &len);
 		new->value = extractValue(&src->value);
-		HASH_ADD_KEYPTR(hh, newVars, new->name, strlen(new->name), new);
+		HASH_ADD_KEYPTR(hh, newVars, new->name, len, new);
 		src = src->hh.next;
 	}
 	return newVars;
@@ -124,13 +125,13 @@ bool getVariable(Variable **variables, const char *const name, Value *const retu
 
 static UT_icd value_icd = {sizeof(Value), NULL, (ctor_f*)value_copy, (dtor_f*)value_dtor};
 
-void list_init(List **lists, List *const list, const char *const name, const uint16 nameLen) {
-	list->name = extractString(name);
+void list_init(List **lists, List *const list, const char *const name, size_t nameLen) {
+	list->name = extractString(name, &nameLen);
 	utarray_init(&list->contents, &value_icd);
 	HASH_ADD_KEYPTR(hh, *lists, list->name, nameLen, list);
 }
 
-UT_array* list_new(List **lists, const char *const name, const uint16 nameLen) {
+UT_array* list_new(List **lists, const char *const name, const size_t nameLen) {
 	List *const list = malloc(sizeof(List));
 	if(list == NULL) {
 		printf("[ERROR]Could not allocate list \"%s\"\n", name);
@@ -155,10 +156,11 @@ List* copyLists(const List *const *const lists) {
 	const List *src = *lists;
 	for(uint16 i = HASH_COUNT(*lists); i != 0; --i) {
 		List *new = malloc(sizeof(List));
-		new->name = extractString(src->name);
+		size_t nameLen = 0;
+		new->name = extractString(src->name, &nameLen);
 		utarray_init(&new->contents, &value_icd);
 		utarray_inserta(&new->contents, &src->contents, 0);
-		HASH_ADD_KEYPTR(hh, newLists, new->name, strlen(new->name), new);
+		HASH_ADD_KEYPTR(hh, newLists, new->name, nameLen, new);
 		src = src->hh.next;
 	}
 	return newLists;

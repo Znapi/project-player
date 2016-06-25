@@ -1,10 +1,11 @@
+#include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
+
 #include "types/primitives.h"
 #include "types/value.h"
 
 #include "strpool.h"
-#include <string.h>
-#include <stdlib.h>
-#include <stdio.h>
 
 #include "value.h"
 
@@ -32,7 +33,7 @@ static bool strTryToBoolean(const char *str, bool *ret) {
 	return false;
 }
 
-static bool strnTryToBoolean(const char *str, const ubyte len, bool *ret) {
+static bool strnTryToBoolean(const char *str, const size_t len, bool *ret) {
 	if(str[0] == 't') {
 		if(strncmp(str+1, "rue", len-1) == 0) {
 			*ret = true;
@@ -62,7 +63,7 @@ static bool strTryToFloating(const char *str, double *ret) {
 		return true;
 }
 
-static bool strnTryToFloating(const char *str, const ubyte len, double *ret) {
+static bool strnTryToFloating(const char *str, const size_t len, double *ret) {
 	char *endptr;
 	*ret = strtod(str, &endptr); // do a conversion to a number
 	if(endptr - str != len) // if data was lost
@@ -144,8 +145,8 @@ double toFloating(const Value *const value) {
 }
 
 /* takes a Value, creates a string with strpool_alloc(will be auto freed), and return the length of the string */
-uint32 toString(const Value *const value, char **string) {
-	uint32 size;
+size_t toString(const Value *const value, char **string) {
+	size_t size;
 	static char buf[64];
 	switch(value->type) {
 
@@ -194,7 +195,7 @@ bool toBoolean(const Value *const value) {
 
 /***** Parsing (public) *****/
 
-Value strnToValue(const char *const string, const ubyte length) {
+Value strnToValue(const char *const string, const size_t length) {
 	Value copy;
 	if(strnTryToFloating(string, length, &t.f)) {
 		copy.type = FLOATING;
@@ -220,7 +221,7 @@ Value strnToValue(const char *const string, const ubyte length) {
 Value extractValue(const Value *const value) {
 	if(value->type == STRING) {
 		Value copy = *value;
-		copy.data.string = extractString(value->data.string);
+		copy.data.string = extractString(value->data.string, NULL);
 		return copy;
 	}
 	else
@@ -242,7 +243,7 @@ Value extractSimplifiedValue(const Value *const value) {
 		}
 		else {
 			copy.type = STRING;
-			copy.data.string = extractString(value->data.string);
+			copy.data.string = extractString(value->data.string, NULL);
 		}
 		return copy;
 	}
