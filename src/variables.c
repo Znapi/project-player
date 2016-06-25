@@ -85,6 +85,19 @@ void freeVariables(Variable **variables) {
 	}
 }
 
+Variable* copyVariables(const Variable *const *const variables) {
+	Variable *newVars = NULL;
+	const Variable *src = *variables;
+	for(uint16 i = HASH_COUNT(*variables); i != 0; --i) {
+		Variable *new = malloc(sizeof(Variable));
+		new->name = extractString(src->name); // TODO: remove repetative calculation of length
+		new->value = extractValue(&src->value);
+		HASH_ADD_KEYPTR(hh, newVars, new->name, strlen(new->name), new);
+		src = src->hh.next;
+	}
+	return newVars;
+}
+
 /* returns true if the variable does not exist in the hash table */
 bool setVariable(Variable **variables, const char *const name, const Value *const newValue) {
 	Variable *var;
@@ -135,6 +148,20 @@ void freeLists(List **lists) {
 		HASH_DEL(*lists, list);
 		free(list); // free each list
 	}
+}
+
+List* copyLists(const List *const *const lists) {
+	List *newLists = NULL;
+	const List *src = *lists;
+	for(uint16 i = HASH_COUNT(*lists); i != 0; --i) {
+		List *new = malloc(sizeof(List));
+		new->name = extractString(src->name);
+		utarray_init(&new->contents, &value_icd);
+		utarray_inserta(&new->contents, &src->contents, 0);
+		HASH_ADD_KEYPTR(hh, newLists, new->name, strlen(new->name), new);
+		src = src->hh.next;
+	}
+	return newLists;
 }
 
 bool getListContents(List **lists, const char *const name, UT_array **const returnContents) {

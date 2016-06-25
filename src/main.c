@@ -46,7 +46,7 @@ void** load(ufastest *const nData) {
 
 int main(void) {
 	ufastest nData;
-	void **data = load(&nData);
+	void **data = load(&nData); // TODO: return array of pointers that need freeing at end of runtime
 	if(data == NULL) {
 		puts("parsing error");
 		return 1;
@@ -61,4 +61,6 @@ int main(void) {
 	while(nData != 0)
 		free(data[--nData]);
 	free(data);
+
+	return 0;
 }

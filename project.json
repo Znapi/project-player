@@ -11,8 +11,8 @@
 			"isPersistent": false,
 			"x": 5,
 			"y": 5,
-			"width": 106,
-			"height": 206,
+			"width": 108,
+			"height": 208,
 			"visible": true
 		},
 		{
@@ -21,8 +21,8 @@
 			"isPersistent": false,
 			"x": 5,
 			"y": 212,
-			"width": 106,
-			"height": 206,
+			"width": 108,
+			"height": 208,
 			"visible": true
 		},
 		{
@@ -31,8 +31,8 @@
 			"isPersistent": false,
 			"x": 114,
 			"y": 86,
-			"width": 104,
-			"height": 204,
+			"width": 106,
+			"height": 206,
 			"visible": true
 		}],
 	"scripts": [[6.8,
@@ -137,36 +137,6 @@
 			"visible": true
 		},
 		{
-			"listName": "test list",
-			"contents": ["a", "b", "c"],
-			"isPersistent": false,
-			"x": 5,
-			"y": 5,
-			"width": 106,
-			"height": 206,
-			"visible": true
-		},
-		{
-			"listName": "test list 2",
-			"contents": [],
-			"isPersistent": false,
-			"x": 5,
-			"y": 212,
-			"width": 106,
-			"height": 206,
-			"visible": true
-		},
-		{
-			"listName": "STAGE_OUT",
-			"contents": [],
-			"isPersistent": false,
-			"x": 114,
-			"y": 86,
-			"width": 104,
-			"height": 204,
-			"visible": true
-		},
-		{
 			"objName": "Sprite2",
 			"scripts": [[10,
 					10,
@@ -175,13 +145,15 @@
 						["say:", "Now invoking 4 new threads with a broadcast..."],
 						["doBroadcastAndWait", "start 4 threads"],
 						["say:", ["contentsOfList:", "STAGE_OUT"]],
-						["say:", "4 threads done!"]]],
+						["say:", "4 threads done!"],
+						["createCloneOf", "_myself_"]]],
 				[5,
 					452,
 					[["whenIReceive", "start 4 threads"], ["say:", ["concatenate:with:", "thread ", ["\/", 9, 3]]]]],
 				[5,
 					241,
-					[["whenIReceive", "start 4 threads"], ["say:", ["concatenate:with:", "thread ", ["*", 2, 1]]]]]],
+					[["whenIReceive", "start 4 threads"], ["say:", ["concatenate:with:", "thread ", ["*", 2, 1]]]]],
+				[5, 640, [["whenCloned"], ["say:", "hi im clone bye"]]]],
 			"costumes": [{
 					"costumeName": "costume1",
 					"baseLayerID": 1,
@@ -201,13 +173,43 @@
 			"visible": true,
 			"spriteInfo": {
 			}
+		},
+		{
+			"listName": "test list",
+			"contents": ["a", "b", "c"],
+			"isPersistent": false,
+			"x": 5,
+			"y": 5,
+			"width": 108,
+			"height": 208,
+			"visible": true
+		},
+		{
+			"listName": "test list 2",
+			"contents": [],
+			"isPersistent": false,
+			"x": 5,
+			"y": 212,
+			"width": 108,
+			"height": 208,
+			"visible": true
+		},
+		{
+			"listName": "STAGE_OUT",
+			"contents": [],
+			"isPersistent": false,
+			"x": 114,
+			"y": 86,
+			"width": 106,
+			"height": 206,
+			"visible": true
 		}],
 	"info": {
+		"scriptCount": 11,
 		"flashVersion": "MAC 21,0,0,174",
-		"scriptCount": 10,
 		"videoOn": false,
 		"spriteCount": 2,
-		"swfVersion": "v447",
-		"userAgent": "Scratch 2.0 Offline Editor"
+		"userAgent": "Scratch 2.0 Offline Editor",
+		"swfVersion": "v447"
 	}
 }

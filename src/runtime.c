@@ -241,6 +241,26 @@ static void startThread(ThreadLink *const link) {
 	runningThreads.next = link; // add it to the list of running threads
 }
 
+// start threads using an array of pointers to the threads
+static void startThreadsInArray(ThreadLink *const *const threads, uint16 nThreads) {
+	do {
+		startThread(threads[--nThreads]);
+	} while(nThreads != 0);
+}
+
+static ThreadLink* stopThread(ThreadLink *const stopped) {
+	ThreadLink *next = stopped->next;
+	if(next == NULL) {
+		stopped->prev->next = NULL;
+	}
+	else {
+		stopped->prev->next = next;
+		next->prev = stopped->prev;
+	}
+	stopped->prev = stopped->next = NULL;
+	return next;
+}
+
 static void stopAllThreads(void) {
 	ThreadLink *current = &runningThreads,
 		*next;
@@ -248,6 +268,17 @@ static void stopAllThreads(void) {
 		next = current->next;
 		current->next = current->prev =  NULL;
 		current = next;
+	}
+}
+
+static void stopThreadsForSprite(const bool stopCurrentThread) {
+	ThreadLink *current = &runningThreads;
+	while(current != NULL) {
+		current = current->next;
+		if(current->sprite == activeSprite) {
+			if(stopCurrentThread || &current->thread != activeThread)
+				stopThread(current);
+		}
 	}
 }
 
@@ -264,8 +295,7 @@ void freeGreenFlagThreads(void) {
 }
 
 void restartGreenFlagThreads(void) {
-	for(uint16 i = 0; i < nGreenFlagThreads; ++i)
-		startThread(greenFlagThreads[i]);
+	startThreadsInArray(greenFlagThreads, nGreenFlagThreads);
 }
 
 static struct BroadcastThreads *broadcastsHashTable = NULL;
@@ -429,17 +459,7 @@ bool stepThreads(void) {
 				if(current->prev == NULL) // if the chain has already been broken, meaning all threads were stopped
 					return false;
 				else {
-					ThreadLink *stopped = current;
-					current = current->next; // advance to next thread
-					if(current == NULL) {
-						stopped->prev->next = NULL;
-					}
-					else {
-						stopped->prev->next = current;
-						current->prev = stopped->prev;
-					}
-					stopped->prev = stopped->next = NULL;
-
+					current = stopThread(current);
 					if(runningThreads.next == NULL) {
 						return false;
 					}

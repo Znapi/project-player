@@ -154,8 +154,8 @@ const struct BlockSpec specs[] = {
 	{"stopScripts", "bf_stop_scripts", f}, // the type of this block depends on it's arguments
 
 	{"whenCloned", "bf_noop", h},
-	{"createCloneOf", "bf_noop", s},
-	{"deleteClone", "bf_noop", f},
+	{"createCloneOf", "bf_clone", s},
+	{"deleteClone", "bf_destroy_clone", f},
 
 	// Sensing
 	{"touching:", "bf_noop", b},

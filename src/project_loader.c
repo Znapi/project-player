@@ -425,7 +425,8 @@ static inline dynarray* addBroadcast(char *const msg, const uint32 msgLen) {
 
 static dynarray *greenFlagThreads;
 
-// sprite specific hat collections
+// sprite specific outputs filled by parseScripts
+uint16 nThreads;
 struct ProcedureLink *procedureHashTable;
 dynarray *whenClonedThreads;
 
@@ -532,6 +533,7 @@ static ThreadLink* parseScripts(SpriteContext *sprite) {
 
 	// finalize ThreadLink array
 	ThreadLink *threadsFinalized;
+	nThreads = dynarray_len(threads);
 	dynarray_finalize(threads, (void**)&threadsFinalized);
 
 	return threadsFinalized;
@@ -551,6 +553,7 @@ static bool attemptToParseSpriteProperty(SpriteContext *sprite) {
 	else if(tokceq("scripts")) {
 		puts("scripts");
 		sprite->threads = parseScripts(sprite);
+		sprite->nThreads = nThreads;
 		sprite->procedureHashTable = procedureHashTable;
 		sprite->nWhenClonedThreads = dynarray_len(whenClonedThreads);
 		dynarray_extract(whenClonedThreads, (void**)&sprite->whenClonedThreads);

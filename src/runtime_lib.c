@@ -343,21 +343,57 @@ BF(do_forever) {
 BF(stop_scripts) {
 	char *str;
 	toString(arg+0, &str);
-	ThreadLink *current, *next;
 	switch(str[0]) {
 	case 'o': // other scripts in sprite
-		current = &runningThreads;
-		while(current != NULL) {
-			next = current->next;
-			if(&current->thread != activeThread)
-				current->next = NULL;
-			current = next;
-		}
+		stopThreadsForSprite(false);
 		return block->p.next;
 	case 'a': // all scripts
 		stopAllThreads();
 	}
 	return NULL; // stop this script
+}
+
+BF(clone) {
+	SpriteContext *clone = malloc(sizeof(SpriteContext));
+	memcpy(clone, activeSprite, sizeof(SpriteContext));
+	clone->scope = CLONE;
+
+	clone->threads = malloc(activeSprite->nThreads*sizeof(ThreadLink));
+	clone->nThreads = activeSprite->nThreads;
+	for(uint16 i = 0; i < clone->nThreads; ++i) {
+		ThreadLink *link = clone->threads+i;
+		link->thread = createThreadContext(activeSprite->threads[i].thread.topBlock);
+		link->sprite = clone;
+		link->prev = link->next = NULL;
+	}
+
+	clone->variables = copyVariables((const Variable *const *const)&activeSprite->variables); // not sure why the typecast is needed to suppress warinings
+	clone->lists = copyLists((const List *const *const)&activeSprite->lists);
+
+	clone->whenClonedThreads = malloc(clone->nWhenClonedThreads*sizeof(ThreadLink*));
+	for(uint16 i = 0; i < clone->nWhenClonedThreads; ++i)
+		clone->whenClonedThreads[i] = (long)(activeSprite->whenClonedThreads[i] - activeSprite->threads) + clone->threads; // simply offset the pointers, so that they are based on the location of the clone's threads rather than the old sprite's threads
+
+	startThreadsInArray(clone->whenClonedThreads, clone->nWhenClonedThreads);
+	return block->p.next;
+}
+
+BF(destroy_clone) {
+	stopThreadsForSprite(true);
+
+	free((void*)activeSprite->name);
+
+	for(uint16 i = 0; i < activeSprite->nThreads; ++i)
+		freeThreadContext(&activeSprite->threads[i].thread);
+	free(activeSprite->threads);
+
+	freeVariables(&activeSprite->variables);
+	freeLists(&activeSprite->lists);
+
+	free(activeSprite->whenClonedThreads);
+
+	free(activeSprite);
+	return block->p.next;
 }
 
 /* Data */
