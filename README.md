@@ -4,13 +4,12 @@ An unofficial implementation of the Scratch project player in C.
 
 Currently, this project requires:
 
-* OS X (10.10 and later tested)
-* GNU Make (should be included with OS X)
+* GNU Make
 * SDL2 (https://libsdl.org/)
 * cmph (http://cmph.sourceforge.net/)
 * SOIL (http://lonesock.net/soil.html)
 
-Ideally, this project would support Linux and Windows as well. Feel free to help with making this project cross platform!
+This project has only been tested on OS X 10.10 and later. Whether or not it can be built and run on Linux and Windows(with MinGW or Cygwin) is unknown. Feel free to test and help make this project cross platform!
 
 # Building
 
