@@ -3,7 +3,7 @@ CC=cc
 WARNING_FLAGS=-Wall -Wno-visibility
 
 INCLUDE_PATHS=
-LIBS=-lSOIL -lcmph -liconv
+LIBS=-lSOIL -lcmph -liconv -lz
 GLOBAL_FLAGS=-O0 -g -fstandalone-debug
 CFLAGS=-DHASH_FUNCTION=HASH_OAT $(WARNING_FLAGS) $(GLOBAL_FLAGS) $(INCLUDE_PATHS)
 
@@ -11,7 +11,7 @@ CFLAGS=-DHASH_FUNCTION=HASH_OAT $(WARNING_FLAGS) $(GLOBAL_FLAGS) $(INCLUDE_PATHS
 
 EXECUTABLES=phtg player graphics_demo
 
-PLAYER_MODS=main project_loader runtime variables value strpool jsmn
+PLAYER_MODS=main project_loader zip_loader runtime variables value strpool jsmn
 player: $(addprefix obj/, $(addsuffix .o, $(PLAYER_MODS))) blockops.mphf
 	$(CC) -o $@ $(filter-out %.mphf, $^) $(LIBS) $(GLOBAL_FLAGS)
 
@@ -23,6 +23,7 @@ PHTG_MODS=phtg
 phtg: $(addprefix obj/, $(addsuffix .o, $(PHTG_MODS)))
 	$(CC) -o $@ $^ -lcmph
 
+# Don't even try to build this target. The build is guarenteed to fail.
 TEST_RUNTIME_MODS=runtime variables value strpool
 test_runtime: $(addprefix obj/, $(addsuffix .o, $(TEST_RUNTIME_MODS)))
 	$(CC) -o $@ $^ -lcheck $(GLOBAL_FLAGS)

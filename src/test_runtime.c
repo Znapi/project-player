@@ -2,6 +2,10 @@
 	Unit Tests for the Runtime
 			test_runtime.c
 
+	DON'T BOTHER WITH THIS FILE.
+	This module is completely broken right now because I've made loads of changes to the
+	runtime without bothering with any more unit tests.
+
 	This is a collection of unit tests for testing the runtime. They test:
 		o  Dynamic strings allocation
 		o  Dynamic type conversions

@@ -1,7 +1,7 @@
-#define JSON_PATH "project.json"
+#define PROJECT_PATH "test.sb2"
 
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <cmph.h>
 #include "ut/dynarray.h"
 #include "ut/uthash.h"
@@ -10,29 +10,14 @@
 #include "types/value.h"
 #include "types/block.h"
 
+#include "zip_loader.h"
 #include "project_loader.h"
 
 #include "runtime.h"
 
-static const char* loadFile(const char *const path, size_t *const length) {
-	FILE *stream = fopen(path, "rb");
-	if(stream == NULL) {
-		printf("ERROR\n\tThe file `%s` could not be opened\n", path);
-		fclose(stream);
-		return 0;
-	}
-	fseek(stream, 0, SEEK_END);
-	*length = (size_t)ftell(stream);
-	char *chars = malloc(*length);
-	rewind(stream);
-	fread(chars, sizeof(char), *length, stream);
-	fclose(stream);
-	return chars;
-}
-
 void** load(ufastest *const nData) {
 	size_t jsonLength;
-	const char *const json = loadFile(JSON_PATH, &jsonLength);
+	const char *const json = loadSB2(PROJECT_PATH, &jsonLength);
 	if(jsonLength == 0)
 		return NULL;
 
