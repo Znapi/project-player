@@ -689,12 +689,177 @@ BF(broadcast_and_wait) {
 	}
 }
 
+/* Sound */
+
+BF(volume_change) {
+	const double diff = toFloating(arg+0);
+	activeSprite->volume += diff;
+	if(activeSprite->volume > 100.0f) activeSprite->volume = 100.0f;
+	else if(activeSprite->volume < 0.0f) activeSprite->volume = 0.0f;
+	return block->p.next;
+}
+
+BF(volume_set) {
+	const double newValue = toFloating(arg+0);
+	if(newValue > 100.0f) activeSprite->volume = 100.0f;
+	else if(newValue < 0.0f) activeSprite->volume = 0.0f;
+	else activeSprite->volume = newValue;
+	return block->p.next;
+}
+
+BF(volume_get) {
+	reportSlot->type = FLOATING;
+	reportSlot->data.floating = activeSprite->volume;
+	return block->p.next;
+}
+
+BF(tempo_change) {
+	const double diff = toFloating(arg+0);
+	activeSprite->tempo += diff;
+	if(activeSprite->tempo > 500.0f) activeSprite->tempo = 500.0f;
+	else if(activeSprite->tempo < 20.0f) activeSprite->tempo = 20.0f;
+	return block->p.next;
+}
+
+BF(tempo_set) {
+	const double newValue = toFloating(arg+0);
+	if(newValue > 500.0f) activeSprite->tempo = 500.0f;
+	else if(newValue < 20.0f) activeSprite->tempo = 20.0f;
+	else activeSprite->tempo = newValue;
+	return block->p.next;
+}
+
+BF(tempo_get) {
+	reportSlot->type = FLOATING;
+	reportSlot->data.floating = activeSprite->tempo;
+	return block->p.next;
+}
+
+/* Motion */
+
+BF(move_forward) {
+	const double h = toFloating(arg+0);
+	if(!isnan(h)) {
+		const double dir = M_PI/180*(activeSprite->direction-90.0);
+		activeSprite->xpos += h*cos(dir);
+		activeSprite->ypos += h*sin(dir);
+		doRedraw = true;
+	}
+	return block->p.next;
+}
+
+BF(direction_change_cw) {
+	const double diff = toFloating(arg+0);
+	if(isfinite(diff))
+		activeSprite->direction = fmod(activeSprite->direction+180.0 + diff, 360.0) - 180.0;
+	doRedraw = true;
+	return block->p.next;
+}
+
+BF(direction_change_ccw) {
+	const double diff = toFloating(arg+0);
+	if(isfinite(diff))
+		activeSprite->direction = fmod(activeSprite->direction+180.0 - diff, 360.0) - 180.0;
+	doRedraw = true;
+	return block->p.next;
+}
+
+BF(direction_set) {
+	const double d = toFloating(arg+0);
+	if(isfinite(d))
+		activeSprite->direction = fmod(d+180.0, 360.0) - 180.0;
+	doRedraw = true;
+	return block->p.next;
+}
+
+BF(direction_get) {
+	reportSlot->type = FLOATING;
+	reportSlot->data.floating = activeSprite->direction;
+	return NULL;
+}
+
+BF(move_to_coordinates) {
+	activeSprite->xpos = toFloating(arg+0);
+	activeSprite->ypos = toFloating(arg+1);
+	doRedraw = true;
+	return block->p.next;
+}
+
+BF(move_to_coordinates_for_duration) {
+	double xDest = toFloating(arg+0);
+	double yDest = toFloating(arg+1);
+
+	if(allocTmpData(block)) {
+		fsetTmpData((float)toFloating(arg+2) * CLOCKS_PER_SEC);
+	}
+	else {
+		const float timeLeft = fgetTmpData();
+		if(timeLeft > 0) {
+			fsetTmpData(fgetTmpData()-dtime);
+
+			if(isnan(xDest)) xDest = 0.0;
+			if(isnan(yDest)) yDest = 0.0;
+			// calculate the speed to go at and multiply by time
+			activeSprite->xpos = ((activeSprite->xpos - xDest) /  timeLeft) * dtime;
+			doRedraw = true;
+		}
+		else { // time's up
+			freeTmpData();
+			activeSprite->xpos = xDest;
+			activeSprite->ypos = yDest;
+			doRedraw = true;
+			return block->p.next;
+		}
+	}
+	doYield = true;
+	return block;
+}
+
+BF(x_change) {
+	activeSprite->xpos += toFloating(arg+0);
+	doRedraw = true;
+	return block->p.next;
+}
+
+BF(x_set) {
+	activeSprite->xpos = toFloating(arg+0);
+	doRedraw = true;
+	return block->p.next;
+}
+
+BF(y_change) {
+	activeSprite->ypos += toFloating(arg+0);
+	doRedraw = true;
+	return block->p.next;
+}
+
+BF(y_set) {
+	activeSprite->ypos = toFloating(arg+0);
+	doRedraw = true;
+	return block->p.next;
+}
+
+BF(x_get) {
+	reportSlot->type = FLOATING;
+	reportSlot->data.floating = activeSprite->xpos;
+	return NULL;
+}
+
+BF(y_get) {
+	reportSlot->type = FLOATING;
+	reportSlot->data.floating = activeSprite->ypos;
+	return NULL;
+}
+
+
+
 /* Looks */
 
 BF(say) {
 	char *msg;
 	toString(arg+0, &msg);
 	printf("%s: %s\n", activeSprite->name, msg);
+	doRedraw = true;
 	return block->p.next;
 }
 
@@ -712,6 +877,7 @@ BF(say_and_do_wait) {
 		freeTmpData();
 		return block->p.next;
 	}
+	doRedraw = true;
 	doYield = true;
 	return block;
 }
@@ -737,6 +903,7 @@ BF(think_and_do_wait) {
 		freeTmpData();
 		return block->p.next;
 	}
+	doRedraw = true;
 	doYield = true;
 	return block;
 }
@@ -744,7 +911,7 @@ BF(think_and_do_wait) {
 BF(gfx_change) { // TODO: check if Scratch bounds some of these
 	char *fxName;
 	toString(arg+0, &fxName);
-	const float diff = toFloating(arg+1);
+	const double diff = toFloating(arg+1);
 	switch(fxName[0]) {
 	case 'c': // color
 		activeSprite->effects.color += diff;
@@ -768,13 +935,14 @@ BF(gfx_change) { // TODO: check if Scratch bounds some of these
 		activeSprite->effects.whirl += diff;
 		break;
 	}
+	doRedraw = true;
 	return block->p.next;
 }
 
 BF(gfx_set) {
 	char *fxName;
 	toString(arg+0, &fxName);
-	const float newValue = toFloating(arg+1);
+	const double newValue = toFloating(arg+1);
 	switch(fxName[0]) {
 	case 'c': // color
 		activeSprite->effects.color = newValue;
@@ -798,6 +966,7 @@ BF(gfx_set) {
 		activeSprite->effects.whirl = newValue;
 		break;
 	}
+	doRedraw = true;
 	return block->p.next;
 }
 
@@ -806,16 +975,19 @@ BF(gfx_reset) {
 		= activeSprite->effects.pixelate = activeSprite->effects.mosaic
 		= activeSprite->effects.fisheye = activeSprite->effects.whirl
 		= 0.0f;
+	doRedraw = true;
 	return block->p.next;
 }
 
 BF(size_change) {
 	activeSprite->size += toFloating(arg+0);
+	doRedraw = true;
 	return block->p.next;
 }
 
 BF(size_set) {
 	activeSprite->size = toFloating(arg+0);
+	doRedraw = true;
 	return block->p.next;
 }
 
@@ -823,52 +995,6 @@ BF(size_get) {
 	reportSlot->type = FLOATING;
 	reportSlot->data.floating = activeSprite->size;
 	return NULL;
-}
-
-/* Sound */
-
-BF(volume_change) {
-	const float diff = toFloating(arg+0);
-	activeSprite->volume += diff;
-	if(activeSprite->volume > 100.0f) activeSprite->volume = 100.0f;
-	else if(activeSprite->volume < 0.0f) activeSprite->volume = 0.0f;
-	return block->p.next;
-}
-
-BF(volume_set) {
-	const float newValue = toFloating(arg+0);
-	if(newValue > 100.0f) activeSprite->volume = 100.0f;
-	else if(newValue < 0.0f) activeSprite->volume = 0.0f;
-	else activeSprite->volume = newValue;
-	return block->p.next;
-}
-
-BF(volume_get) {
-	reportSlot->type = FLOATING;
-	reportSlot->data.floating = activeSprite->volume;
-	return block->p.next;
-}
-
-BF(tempo_change) {
-	const float diff = toFloating(arg+0);
-	activeSprite->tempo += diff;
-	if(activeSprite->tempo > 500.0f) activeSprite->tempo = 500.0f;
-	else if(activeSprite->tempo < 20.0f) activeSprite->tempo = 20.0f;
-	return block->p.next;
-}
-
-BF(tempo_set) {
-	const float newValue = toFloating(arg+0);
-	if(newValue > 500.0f) activeSprite->tempo = 500.0f;
-	else if(newValue < 20.0f) activeSprite->tempo = 20.0f;
-	else activeSprite->tempo = newValue;
-	return block->p.next;
-}
-
-BF(tempo_get) {
-	reportSlot->type = FLOATING;
-	reportSlot->data.floating = activeSprite->tempo;
-	return block->p.next;
 }
 
 BF(test_print);

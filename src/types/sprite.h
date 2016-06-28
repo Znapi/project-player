@@ -20,10 +20,10 @@ struct SpriteContext {
 	ThreadLink **whenClonedThreads;
 	uint16 nWhenClonedThreads;
 
-	float xpos, ypos, direction,
+	double xpos, ypos, direction,
 		size, volume, tempo;
 	struct {
-		float color, brightness, ghost,
+		double color, brightness, ghost,
 			pixelate, mosaic,
 			fisheye, whirl;
 	} effects;

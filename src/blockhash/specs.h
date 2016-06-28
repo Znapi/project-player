@@ -33,33 +33,33 @@ struct BlockSpec {
 };
 
 const struct BlockSpec specs[] = {
-	// op     name  type
-	// --     ----  ----
+	// op     name     type
+	// --     ----     ----
 	{"noop", "bf_noop", s},
 
 	// Motion
-	{"forward:", "bf_noop", s},
-	{"turnRight:", "bf_noop", s},
-	{"turnLeft:", "bf_noop", s},
+	{"forward:", "bf_move_forward", s},
+	{"turnRight:", "bf_direction_change_cw", s},
+	{"turnLeft:", "bf_direction_change_ccw", s},
 
-	{"heading:", "bf_noop", s},
+	{"heading:", "bf_direction_set", s},
 	{"pointTowards:", "bf_noop", s},
-	{"gotoX:y:", "bf_noop", s},
+	{"gotoX:y:", "bf_move_to_coordinates", s},
 	{"gotoSpriteOrMouse:", "bf_noop", s},
-	{"glideSecs:toX:y:elapsed:from:", "bf_noop", s},
+	{"glideSecs:toX:y:elapsed:from:", "bf_move_to_coordinates_for_duration", s},
 
-	{"changeXposBy:", "bf_noop", s},
-	{"xpos:", "bf_noop", s},
-	{"changeYposBy:", "bf_noop", s},
-	{"ypos:", "bf_noop", s},
+	{"changeXposBy:", "bf_x_change", s},
+	{"xpos:", "bf_x_set", s},
+	{"changeYposBy:", "bf_y_change", s},
+	{"ypos:", "bf_y_set", s},
 
 	{"bounceOffEdge", "bf_noop", s},
 
 	{"setRotationStyle", "bf_noop", s},
 
-	{"xpos", "bf_noop", r},
-	{"ypos", "bf_noop", r},
-	{"heading", "bf_noop", r},
+	{"xpos", "bf_x_get", r},
+	{"ypos", "bf_y_get", r},
+	{"heading", "bf_direction_get", r},
 
 	// Looks
 	{"say:duration:elapsed:from:", "bf_say_and_do_wait", s},
