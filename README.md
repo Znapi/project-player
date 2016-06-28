@@ -2,15 +2,20 @@ An unofficial implementation of the Scratch project player in C.
 
 # Requirements
 
-Currently, this project requires:
+This project requires:
 
-* GNU Make (probably already installed, comes with OS X)
-* SDL2 (https://libsdl.org/)
-* cmph (http://cmph.sourceforge.net/)
-* SOIL (http://lonesock.net/soil.html)
-* zlib (likely already installed, comes with OS X)
+* A C compiler (invoked with `cc`)
+* [GNU Make](https://www.gnu.org/software/make/)
+* [zlib](http://zlib.net)
+* [cmph](http://cmph.sourceforge.net)
 
-This project has only been tested on OS X 10.10 and later. Whether or not it can be built and run on Linux and Windows(with MinGW or Cygwin) is unknown. Feel free to test and help make this project cross platform!
+On OS X, you can get a C compiler and GNU Make by installing the command line developer tools. Most Linux distros likely already have them installed too. For Windows, [MinGW](http://mingw.org/) includes a C compiler and GNU Make.
+
+On OS X, zlib is already installed. On Linux, it is very likely already installed.
+
+If you don't have zlib or cmph installed, and you have a package manager, try getting them through your package manager first. Else, you will need to install them yourself. Install them where your compiler can find them.
+
+This project has only been tested on OS X 10.10 and later, though some effort has been put into making this project cross platform. Feel free to help make this project cross platform!
 
 # Building
 
@@ -38,31 +43,18 @@ To remove all generated files, run:
 make spotless
 ```
 
-## Top Level Targets
-
-There are 2 different top level targets that can be built:
-
-* `player` (default)
-* `graphics_demo`
-
-To build `player`, you just need to run `make`. Following it with `player` is optional. `player` is just the current command line only project player.
-
-To build `graphics_demo`, run `make graphics_demo`. `graphics_demo` is a basic program to create a window and draw an image on it. It is just for testing portability.
-
-To build both, run `make all`.
-
 # Credits
-
-uthash: http://troydhanson.github.io/uthash/
-
-jsmn: http://zserge.com/jsmn.html
 
 check: http://libcheck.github.io/check/
 
 cmph: http://cmph.sourceforge.net/
 
+jsmn: http://zserge.com/jsmn.html
+
+minizip/zlib: http://www.winimage.com/zLibDll/minizip.html
+
 SDL2: https://libsdl.org/
 
 SOIL: http://lonesock.net/soil.html
 
-minizip/zlib: http://www.winimage.com/zLibDll/minizip.html
+uthash: http://troydhanson.github.io/uthash/

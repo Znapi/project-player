@@ -12,6 +12,8 @@
 **/
 
 #define NOUNCRYPT
+/* I just include the C files rather than the headers because this is the only module that
+	 will be using minizip, and this file would be a really small module by itself */
 #include "minizip/ioapi.c"
 #include "minizip/unzip.c"
 /* Even though I never use the header files for minizip, I've left them in the repo as

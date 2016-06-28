@@ -2,10 +2,19 @@ CC=cc
 
 WARNING_FLAGS=-Wall -Wno-visibility
 
-INCLUDE_PATHS=
-LIBS=-lSOIL -lcmph -liconv -lz
 GLOBAL_FLAGS=-O0 -g -fstandalone-debug
-CFLAGS=-DHASH_FUNCTION=HASH_OAT $(WARNING_FLAGS) $(GLOBAL_FLAGS) $(INCLUDE_PATHS)
+CFLAGS=-DHASH_FUNCTION=HASH_OAT $(WARNING_FLAGS) $(GLOBAL_FLAGS)
+
+LIBS=-lSOIL -lcmph -liconv -lz
+ifeq ($(OS),Windows_NT)
+LIBS += -lopengl32 -lSDL2
+else
+ifeq ($(shell uname -s),Darwin)
+LIBS += -framework OpenGL -framework SDL2 -framework Cocoa
+else
+LIBS += `sdl2-config --cflags --libs`
+endif
+endif
 
 ### building the executables
 
@@ -17,7 +26,7 @@ player: $(addprefix obj/, $(addsuffix .o, $(PLAYER_MODS))) blockops.mphf
 
 GRAPHICS_MODS=graphics runtime variables value strpool
 graphics_demo: $(addprefix obj/, $(addsuffix .o, $(GRAPHICS_MODS)))
-	$(CC) -o $@ $^ $(LIBS) -framework OpenGL -framework SDL2 -framework Cocoa $(GLOBAL_FLAGS)
+	$(CC) -o $@ $^ $(LIBS) $(GLOBAL_FLAGS)
 
 PHTG_MODS=phtg
 phtg: $(addprefix obj/, $(addsuffix .o, $(PHTG_MODS)))
