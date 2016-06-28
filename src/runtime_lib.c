@@ -18,7 +18,14 @@
 
 #define BF(name) static const Block* bf_##name(const Block *const block, Value *const reportSlot, const Value arg[])
 
-BF(noop) { puts("NOOP CALLED!"); return block->p.next; }
+BF(noop) {
+	puts("noop called"); // simple notification for debugging purposes
+	if(reportSlot != NULL) {        // if the run time is expecting this block to report
+		reportSlot->type = FLOATING; // something, better fill out the report slot to prevent
+		reportSlot->data.floating = 0.0; // weird behavior or accessing a freed string
+	}
+	return block->p.next;
+}
 
 /* Operators */
 
@@ -381,7 +388,7 @@ BF(clone) {
 BF(destroy_clone) {
 	stopThreadsForSprite(true);
 
-	free((void*)activeSprite->name);
+	//free((void*)activeSprite->name);
 
 	for(uint16 i = 0; i < activeSprite->nThreads; ++i)
 		freeThreadContext(&activeSprite->threads[i].thread);
@@ -687,8 +694,180 @@ BF(broadcast_and_wait) {
 BF(say) {
 	char *msg;
 	toString(arg+0, &msg);
-	printf("bf_say: ");
-	puts(msg);
+	printf("%s: %s\n", activeSprite->name, msg);
+	return block->p.next;
+}
+
+BF(say_and_do_wait) {
+	if(allocTmpData(block)) {
+		fsetTmpData((float)toFloating(arg+0) * CLOCKS_PER_SEC);
+		char *msg;
+		toString(arg+0, &msg);
+		printf("%s: %s\n", activeSprite->name, msg);
+	}
+	else if (fgetTmpData() > 0) {
+		fsetTmpData(fgetTmpData()-dtime);
+	}
+	else {
+		freeTmpData();
+		return block->p.next;
+	}
+	doYield = true;
+	return block;
+}
+
+BF(think) {
+	char *msg;
+	toString(arg+0, &msg);
+	printf("%s thinks: %s\n", activeSprite->name, msg);
+	return block->p.next;
+}
+
+BF(think_and_do_wait) {
+	if(allocTmpData(block)) {
+		fsetTmpData((float)toFloating(arg+0) * CLOCKS_PER_SEC);
+		char *msg;
+		toString(arg+0, &msg);
+		printf("%s thinks: %s\n", activeSprite->name, msg);
+	}
+	else if (fgetTmpData() > 0) {
+		fsetTmpData(fgetTmpData()-dtime);
+	}
+	else {
+		freeTmpData();
+		return block->p.next;
+	}
+	doYield = true;
+	return block;
+}
+
+BF(gfx_change) { // TODO: check if Scratch bounds some of these
+	char *fxName;
+	toString(arg+0, &fxName);
+	const float diff = toFloating(arg+1);
+	switch(fxName[0]) {
+	case 'c': // color
+		activeSprite->effects.color += diff;
+		break;
+	case 'b': // brightness
+		activeSprite->effects.brightness += diff;
+		break;
+	case 'g': // ghost
+		activeSprite->effects.ghost += diff;
+		break;
+	case 'p': // pixelate
+		activeSprite->effects.pixelate += diff;
+		break;
+	case 'm': // mosaic
+		activeSprite->effects.mosaic += diff;
+		break;
+	case 'f': // fisheye
+		activeSprite->effects.fisheye += diff;
+		break;
+	case 'w': // whirl
+		activeSprite->effects.whirl += diff;
+		break;
+	}
+	return block->p.next;
+}
+
+BF(gfx_set) {
+	char *fxName;
+	toString(arg+0, &fxName);
+	const float newValue = toFloating(arg+1);
+	switch(fxName[0]) {
+	case 'c': // color
+		activeSprite->effects.color = newValue;
+		break;
+	case 'b': // brightness
+		activeSprite->effects.brightness = newValue;
+		break;
+	case 'g': // ghost
+		activeSprite->effects.ghost = newValue;
+		break;
+	case 'p': // pixelate
+		activeSprite->effects.pixelate = newValue;
+		break;
+	case 'm': // mosaic
+		activeSprite->effects.mosaic = newValue;
+		break;
+	case 'f': // fisheye
+		activeSprite->effects.fisheye = newValue;
+		break;
+	case 'w': // whirl
+		activeSprite->effects.whirl = newValue;
+		break;
+	}
+	return block->p.next;
+}
+
+BF(gfx_reset) {
+	activeSprite->effects.color = activeSprite->effects.brightness = activeSprite->effects.ghost
+		= activeSprite->effects.pixelate = activeSprite->effects.mosaic
+		= activeSprite->effects.fisheye = activeSprite->effects.whirl
+		= 0.0f;
+	return block->p.next;
+}
+
+BF(size_change) {
+	activeSprite->size += toFloating(arg+0);
+	return block->p.next;
+}
+
+BF(size_set) {
+	activeSprite->size = toFloating(arg+0);
+	return block->p.next;
+}
+
+BF(size_get) {
+	reportSlot->type = FLOATING;
+	reportSlot->data.floating = activeSprite->size;
+	return NULL;
+}
+
+/* Sound */
+
+BF(volume_change) {
+	const float diff = toFloating(arg+0);
+	activeSprite->volume += diff;
+	if(activeSprite->volume > 100.0f) activeSprite->volume = 100.0f;
+	else if(activeSprite->volume < 0.0f) activeSprite->volume = 0.0f;
+	return block->p.next;
+}
+
+BF(volume_set) {
+	const float newValue = toFloating(arg+0);
+	if(newValue > 100.0f) activeSprite->volume = 100.0f;
+	else if(newValue < 0.0f) activeSprite->volume = 0.0f;
+	else activeSprite->volume = newValue;
+	return block->p.next;
+}
+
+BF(volume_get) {
+	reportSlot->type = FLOATING;
+	reportSlot->data.floating = activeSprite->volume;
+	return block->p.next;
+}
+
+BF(tempo_change) {
+	const float diff = toFloating(arg+0);
+	activeSprite->tempo += diff;
+	if(activeSprite->tempo > 500.0f) activeSprite->tempo = 500.0f;
+	else if(activeSprite->tempo < 20.0f) activeSprite->tempo = 20.0f;
+	return block->p.next;
+}
+
+BF(tempo_set) {
+	const float newValue = toFloating(arg+0);
+	if(newValue > 500.0f) activeSprite->tempo = 500.0f;
+	else if(newValue < 20.0f) activeSprite->tempo = 20.0f;
+	else activeSprite->tempo = newValue;
+	return block->p.next;
+}
+
+BF(tempo_get) {
+	reportSlot->type = FLOATING;
+	reportSlot->data.floating = activeSprite->tempo;
 	return block->p.next;
 }
 

@@ -579,12 +579,13 @@ static inline void initializeSpriteContext(SpriteContext *const c, const enum Sp
 	c->whenClonedThreads = NULL;
 	c->nWhenClonedThreads = 0;
 
-	c->xpos = c->ypos = c->layer = c->costumeNumber = 0;
-	c->direction = 90; c->size = c->volume = 100; c->tempo = 60;
+	c->xpos = c->ypos = 0.0f;
+	c->direction = 90.0f;
+	c->size = c->volume = 100.0f; c->tempo = 60.0f;
 	c->effects.color = c->effects.brightness = c->effects.ghost
 		= c->effects.pixelate = c->effects.mosaic
 		= c->effects.fisheye = c->effects.whirl
-		= 0;
+		= 0.0f;
 }
 
 /* Takes a pointer to the JSON in memory, and returns an array of all the blocks (as in

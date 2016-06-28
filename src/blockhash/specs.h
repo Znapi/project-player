@@ -62,10 +62,10 @@ const struct BlockSpec specs[] = {
 	{"heading", "bf_noop", r},
 
 	// Looks
-	{"say:duration:elapsed:from:", "bf_noop", s},
+	{"say:duration:elapsed:from:", "bf_say_and_do_wait", s},
 	{"say:", "bf_say", s},
-	{"think:duration:elapsed:from:", "bf_noop", s},
-	{"think:", "bf_noop", s},
+	{"think:duration:elapsed:from:", "bf_think", s},
+	{"think:", "bf_think_and_do_wait", s},
 
 	{"show", "bf_noop", s},
 	{"hide", "bf_noop", s},
@@ -74,19 +74,19 @@ const struct BlockSpec specs[] = {
 	{"nextCostume", "bf_noop", s},
 	{"startScene", "bf_noop", s},
 
-	{"changeGraphicEffect:by:", "bf_noop", s},
-	{"setGraphicEffect:to:", "bf_noop", s},
-	{"filterReset", "bf_noop", s},
+	{"changeGraphicEffect:by:", "bf_gfx_change", s},
+	{"setGraphicEffect:to:", "bf_gfx_set", s},
+	{"filterReset", "bf_gfx_reset", s},
 
-	{"changeSizeBy:", "bf_noop", s},
-	{"setSizeTo:", "bf_noop", s},
+	{"changeSizeBy:", "bf_size_change", s},
+	{"setSizeTo:", "bf_size_set", s},
 
 	{"comeToFront", "bf_noop", s},
 	{"goBackByLayers:", "bf_noop", s},
 
 	{"costumeIndex", "bf_noop", r},
 	{"sceneName", "bf_noop", r},
-	{"scale", "bf_noop", r},
+	{"scale", "bf_size_get", r},
 
 	{"startSceneAndWait", "bf_noop", s},
 	{"nextScene", "bf_noop", s},
@@ -104,13 +104,13 @@ const struct BlockSpec specs[] = {
 
 	{"instrument:", "bf_noop", s},
 
-	{"changeVolumeBy:", "bf_noop", s},
-	{"setVolumeTo:", "bf_noop", s},
-	{"volume", "bf_noop", r},
+	{"changeVolumeBy:", "bf_volume_change", s},
+	{"setVolumeTo:", "bf_volume_set", s},
+	{"volume", "bf_volume_get", r},
 
-	{"changeTempoBy:", "bf_noop", s},
-	{"setTempTo:", "bf_noop", s},
-	{"tempo", "bf_noop", r},
+	{"changeTempoBy:", "bf_tempo_change", s},
+	{"setTempTo:", "bf_tempo_set", s},
+	{"tempo", "bf_tempo_get", r},
 
 	// Pen
 	{"clearPenTrails", "bf_noop", s},
