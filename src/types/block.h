@@ -5,7 +5,7 @@ typedef const struct Block* (*blockfunc)(const struct Block *block, struct Value
 
 // Internal representation of a block
 struct Block {
-	blockhash hash; // the identifying hash for this block
+	blockfunc func;
 	ubyte level; // the level this block or constant argument is on
 	union {
 		struct Block *next; // if this is a stack block, this links to the next Block, NULL if it is the end of the stack

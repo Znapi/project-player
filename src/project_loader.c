@@ -266,13 +266,9 @@ static inline uint32 hash(const char *const key, const size_t keyLen, cmph_t *mp
 	return cmph_search(mphf, key, keyLen);
 }
 
-static inline uint32 tokchash_new(cmph_t *mphf) {
+static inline uint32 tokchash(cmph_t *mphf) {
 	parseString(gjson(TOKC), tokclen());
 	return hash(charBuffer->d, dynarray_len(charBuffer) - 1, mphf);
-}
-
-static inline uint32 tokchash(cmph_t *mphf) {
-	return cmph_search(mphf, gjson(TOKC), tokclen());
 }
 
 #include "blockhash/typestable.c"
@@ -281,18 +277,35 @@ static char **procedureParameters; // TODO: switch this to a dynarray
 static uint16 nParameters;
 
 /* Parses arguments to a block, using recursion when one of the arguments is another
-	 block. pos should point to the first argument, and is left pointing after the last
-	 token parsed. */
-static void parseBlockArgs(Block **const blocks, Value **const values, uint16 argsToGo, const ubyte level) {
+	 block. pos should point to the first block, and is left pointing at the last token
+	 parsed. *blocks is left pointing at the last item made. *values is left pointing after
+	 the last item made. */
+static enum BlockType parseBlock(Block **const blocks, Value **const values, const ubyte level) {
 	Block *block = *blocks;
 	Value *value = *values;
-	if(argsToGo == 0) return;
-	do {
+
+	uint16 argsToGo = TOKC.size;
+	++pos; // advance to opstring
+	const blockhash hash = tokchash(blockMphf);
+	const blockfunc func = opsTable[hash];
+	const enum BlockType type = blockTypesTable[hash];
+	switch(type) {
+	case BLOCK_TYPE_C: case BLOCK_TYPE_CF:
+		--argsToGo; break;
+	case BLOCK_TYPE_E:
+		argsToGo -= 2; break;
+	default:;
+	}
+
+	while(--argsToGo != 0) {
+		++pos; // advance to next argument
 		if(TOKC.type == JSMN_ARRAY) { // if argument is a block
 			++pos; // advance to opstring
-			blockhash hash = tokchash_new(blockMphf); // hash opstring
-
-			if(tokceq("getParam")) { // if it is a procedure parameter TODO: actually parse 2nd argument
+			if(!tokceq("getParam")) {
+				--pos;
+				parseBlock(&block, &value, level+1);
+			}
+			else { // if it is a procedure parameter
 				++pos; // advance to argument (param name)
 				parseString(gjson(TOKC), tokclen());
 				uint16 i;
@@ -307,93 +320,80 @@ static void parseBlockArgs(Block **const blocks, Value **const values, uint16 ar
 				else
 					value->data.integer = i;
 				value->type = FLOATING;
-				block->hash = noop_hash;
+				block->func = NULL;
 				block->p.value = value;
 				block->level = level + 1;
 				++value;
 				++block;
-				block->hash = hash;
+				block->func = opsTable[cmph_search(blockMphf, "getParam", 8)];
 				block->level = level;
-				++block;
-				pos += 2; // advance past argument
-				continue;
+				++pos; // advance to second argument
 			}
-
-			++pos; // advance to first argument
-			parseBlockArgs(&block, &value, tokens[pos - 2].size - 1, level+1); // parse the arguments
-			block->hash = hash;
 		}
 		else {
 			if(TOKC.type == JSMN_STRING) { // argument is a string
 				value->type = STRING;
 				tokcext(value->data.string);
-				block->hash = noop_hash;
-				block->p.value = value;
 			}
 			else { // else argument is a primitive
 				*value = strnToValue(gjson(TOKC), tokclen()); // assume characters don't need special parsing
-				block->hash = noop_hash;
-				block->p.value = value;
 			}
+			block->func = NULL;
+			block->p.value = value;
+			block->level = level;
 			++value;
-			++pos; // advance to next argument/child
 		}
-		block->level = level;
 		++block;
-	} while(--argsToGo != 0);
+	}
+	block->func = func;
+	block->level = level - 1;
+	block->p.next = NULL;
+
 	*blocks = block;
 	*values = value;
+	return type;
 }
 
-/* pos should be pointing to first block of the stack, and will be left pointing after the last token parsed */
+/* pos should be pointing to first block of the stack, and will be left pointing after the
+	 last token parsed. *blocks and *values will be left pointing after the last items made. */
 static void parseStack(Block **const blocks, Value **const values, uint16 nStackBlocksToGo, Block **link) {
 	Block *block = *blocks;
 	do {
-		++pos; // advance to opstring
 		if(link != NULL)
 			*link = block;
 
-		blockhash hash = (blockhash)tokchash(blockMphf);
-		++pos; // advance to first argument (or next block if there is no arguments)
-
-		switch(blockTypesTable[hash]) {
+		switch(parseBlock(&block, values, 1)) {
 
 		case BLOCK_TYPE_S: // 1 substack: 1 following (normal stack block)
-			parseBlockArgs(&block, values, tokens[pos-2].size - 1, 1);
-			block->hash = hash;
 			link = &(block->p.next);
 			++block;
+			++pos;
 			break;
 
 		case BLOCK_TYPE_C: // 2 substacks: 1 inner and 1 following
-			parseBlockArgs(&block, values, tokens[pos-2].size - 2, 1);
-			block->hash = hash;
 			block->p.substacks = malloc(2*sizeof(Block*));
 			link = block->p.substacks+1;
 			++block;
-			++pos; // advance to first block of substack
+			pos += 2; // advance to first block of substack
 			parseStack(&block, values, tokens[pos-1].size, (block-1)->p.substacks+0);
 			break;
 
 		case BLOCK_TYPE_CF: // 1 substack: 1 inner and no following
-			//parseBlockArgs(&block, values, tokens[pos - 2].size - 2 // no cf blocks have arguments currently
-			block->hash = hash;
 			block->p.substacks = malloc(1*sizeof(Block*));
 			link = NULL;
 			++block;
-			++pos;
+			pos += 2;
 			parseStack(&block, values, tokens[pos-1].size, (block-1)->p.substacks+0);
 			break;
 
+			Block **substacks;
 		case BLOCK_TYPE_E: // 3 substacks: 2 inner and 1 following
-			parseBlockArgs(&block, values, tokens[pos-2].size - 3, 1);
-			block->hash = hash;
-			Block **const substacks = malloc(3*sizeof(Block*));
+			substacks = malloc(3*sizeof(Block*));
 			block->p.substacks = substacks;
 			link = substacks+2;
 			++block;
-			++pos;
-			parseStack(&block, values, tokens[pos-1].size, substacks+0);
+			pos += 2;
+			parseStack(&block, values, tokens[pos-1].size, block->p.substacks+0);
 			++pos;
 			parseStack(&block, values, tokens[pos-1].size, substacks+1);
 			break;
@@ -426,9 +426,9 @@ static inline dynarray* addBroadcast(char *const msg, const uint32 msgLen) {
 static dynarray *greenFlagThreads;
 
 // sprite specific outputs filled by parseScripts
-uint16 nThreads;
-struct ProcedureLink *procedureHashTable;
-dynarray *whenClonedThreads;
+static uint16 nThreads;
+static struct ProcedureLink *procedureHashTable;
+static dynarray *whenClonedThreads;
 
 static ThreadLink* parseScripts(SpriteContext *sprite) {
 	dynarray *threads;

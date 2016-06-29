@@ -14,6 +14,8 @@ struct ProcedureLink {
 	UT_hash_handle hh;
 };
 
+extern const blockfunc opsTable[];
+
 extern void setStage(struct SpriteContext *const stage);
 
 extern struct ThreadContext createThreadContext(const struct Block *const block);

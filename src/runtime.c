@@ -389,19 +389,20 @@ static const Block* interpret(const Block block[], Value stack[], Value *const r
 	do {
 		next = block[blockPos];
 
-		if(next.level == level) { // it must be a constant argument
-			stack[stackPos] = *(next.p.value);
+		if(next.level == level) {
+			if(next.func == NULL) // constant argument
+				stack[stackPos] = *(next.p.value);
+			else // block argument (without any arguments itself)
+				(*next.func)(block + blockPos, stack+stackPos, NULL);
 			++stackPos;
 		}
 		else if(next.level > level) { // need to recurse
 			const Block *new = interpret(block + blockPos, stack + stackPos + 1, stack + stackPos, level + 1);
-			if(new == NULL)
-				return NULL;
 			++stackPos;
 			blockPos += new - (block + blockPos);
 		}
-		else/* next.level < level */{ // it must be a block
-			const Block *move = (*opsTable[next.hash])(block + blockPos, reportSlot, stack);
+		else /* next.level < level */ { // it must be a block
+			const Block *move = (*next.func)(block + blockPos, reportSlot, stack);
 			if(level == 1)
 				return move;
 			else
