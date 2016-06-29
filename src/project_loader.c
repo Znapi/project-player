@@ -393,7 +393,7 @@ static void parseStack(Block **const blocks, Value **const values, uint16 nStack
 			link = substacks+2;
 			++block;
 			pos += 2;
-			parseStack(&block, values, tokens[pos-1].size, block->p.substacks+0);
+			parseStack(&block, values, tokens[pos-1].size, substacks+0);
 			++pos;
 			parseStack(&block, values, tokens[pos-1].size, substacks+1);
 			break;
