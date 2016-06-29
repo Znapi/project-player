@@ -163,8 +163,8 @@ const struct BlockSpec specs[] = {
 	{"color:sees:", "bf_noop", b},
 	{"distanceTo:", "bf_noop", r},
 
-	{"doAsk", "bf_noop", s},
-	{"answer", "bf_noop", r},
+	{"doAsk", "bf_prompt", s},
+	{"answer", "bf_prompt_get", r},
 
 	{"keyPressed:", "bf_noop", b},
 	{"mousePressed", "bf_noop", b},
@@ -184,7 +184,7 @@ const struct BlockSpec specs[] = {
 
 	{"timeAndDate", "bf_noop", r},
 	{"timestamp", "bf_noop", r},
-	{"getUserName", "bf_noop", r},
+	{"getUserName", "bf_username_get", r},
 
 	// Operators
 	{"+", "bf_add", r},

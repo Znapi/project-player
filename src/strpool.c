@@ -66,7 +66,7 @@ char* strpool_alloc(const size_t length) {
 		return NULL;
 	}
 
-	listHead->str = malloc(length);
+	listHead->str = malloc(length*sizeof(char));
 	if(listHead->str == NULL)
 		puts("[ERROR]Could not allocate string in strpool.");
 

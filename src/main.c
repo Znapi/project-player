@@ -37,6 +37,8 @@ int main(void) {
 		return 1;
 	}
 
+	initializeAskPrompt();
+
 	puts("starting");
 	restartGreenFlagThreads();
 	puts("running");

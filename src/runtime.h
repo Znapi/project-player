@@ -16,6 +16,8 @@ struct ProcedureLink {
 
 extern const blockfunc opsTable[];
 
+extern void initializeAskPrompt(void);
+
 extern void setStage(struct SpriteContext *const stage);
 
 extern struct ThreadContext createThreadContext(const struct Block *const block);

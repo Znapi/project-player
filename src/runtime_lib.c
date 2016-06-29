@@ -12,8 +12,6 @@
 /*
 	TODO
 		***make string manupulation utf-8 compatible***
-		add cloning sometime
-		showing/hiding monitors when graphics are implemented
 */
 
 #define BF(name) static const Block* bf_##name(const Block *const block, Value *const reportSlot, const Value arg[])
@@ -687,6 +685,29 @@ BF(broadcast_and_wait) {
 			return block->p.next; // if all broadcast threads are stopped, continue on to next block
 		}
 	}
+}
+
+/* Sensing */
+
+BF(prompt) { // TODO: this is a temporary command line based implementation until graphics are implemented
+	puts("PROMPT:");
+	scanf("%s", askResponse.d);
+	askResponse.i = strlen(askResponse.d) + 1;
+	return block->p.next;
+}
+
+BF(prompt_get) {
+	reportSlot->type = STRING;
+	reportSlot->data.string = strpool_alloc(askResponse.i);
+	memcpy(reportSlot->data.string, askResponse.d, askResponse.i*sizeof(char));
+	return NULL;
+}
+
+BF(username_get) { // just default to a null string
+	reportSlot->type = STRING;
+	reportSlot->data.string = strpool_alloc(1);
+	reportSlot->data.string[0] = '\0';
+	return NULL;
 }
 
 /* Sound */

@@ -40,6 +40,14 @@ void setStage(SpriteContext *const stageContext) {
 	stage = stageContext;
 }
 
+static dynarray askResponse;
+
+void initializeAskPrompt(void) {
+	dynarray_init(&askResponse, sizeof(char));
+	dynarray_ensure_size(&askResponse, 1024); // should be good enough
+	dynarray_extend_back(&askResponse); // push a single null terminator
+}
+
 /**
 	Counters
 
