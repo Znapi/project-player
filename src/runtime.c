@@ -370,16 +370,16 @@ static const struct ProcedureLink *getProcedure(const char *const label, const s
 
 	The interpreter is still simple like in the Flash version.
 
-	It looks up the opcode string of a block in a dictionary (hashtable	specifically),
-	getting a function pointer, and calls that function, which is called a block
-	function (primitive in scratch-flash). The function accomplishes what the block is
-	supposed to do, then returns the a pointer to the next block in the stack, or NULL if it
-	is the end of the stack.
+	The function pointer for each block is pre-computed by looking up the opcode string of a
+	each block in a hashtable, getting a function pointer. The interpreter calls that
+	function, which I call a block function (it is called a primitive in scratch-flash). The
+	block function performs some instructions, and then it returns the a pointer to the next
+	block in the stack, or NULL if the block is at the end of the stack.
 
-	Unlike the Flash version, Scratch blocks are evaluated backwards, so that recursion
-	is done by the interpreter, not the block functions themselves. This also means that the
-	interpreter has to maintain its own stack of evaluated arguments, rather than relying
-	on recursion.
+	Unlike the Flash version, Scratch blocks aren't evaluated strictly left to right, so
+	that recursion can be done by the interpreter, not the block functions themselves.
+	This also means that the interpreter has to maintain its own stack of evaluated
+	arguments, rather than relying on recursion.
 
 	Also unlike the Flash version, control blocks aren't that special. They are treated like
 	any other block, and have a block function just like any other block.
