@@ -70,54 +70,51 @@ void initializeAskPrompt(void) {
 
 /* alloc is not quite the right term, but I couldn't think of a better one */
 static bool allocTmpData(const Block *const block) {
-	if(activeThread->tmp.slotsUsed == 0) {
-		activeThread->tmp.owners[activeThread->tmp.slotsUsed] = block;
-		++activeThread->tmp.slotsUsed;
-		return true;
+	struct TmpData *data = dynarray_back(&activeThread->tmp);
+
+	if(data != NULL) {
+		if(data->owner == block)
+			return false;
 	}
-	else if(activeThread->tmp.owners[activeThread->tmp.slotsUsed-1] != block) {
-		activeThread->tmp.owners[activeThread->tmp.slotsUsed] = block;
-		++activeThread->tmp.slotsUsed;
-		return true;
-	}
-	else
-		return false;
+
+	dynarray_extend_back(&activeThread->tmp);
+	((struct TmpData*)dynarray_back(&activeThread->tmp))->owner = block;
+	return true;
 }
 
 static void freeTmpData(void) {
-	--activeThread->tmp.slotsUsed;
-	activeThread->tmp.owners[activeThread->tmp.slotsUsed] = NULL;
+	dynarray_pop_back(&activeThread->tmp);
 }
 
-static union TmpData* getTmpDataPointer(void) {
-	return activeThread->tmp.data+(activeThread->tmp.slotsUsed-1);
+static struct TmpData* getTmpDataPointer(void) {
+	return (struct TmpData*)dynarray_back(&activeThread->tmp);
 }
 
 /* get the unsigned integer value of the current counter */
 static inline uint32 ugetTmpData(void) {
-	return activeThread->tmp.data[activeThread->tmp.slotsUsed-1].u;
+	return ((struct TmpData*)dynarray_back(&activeThread->tmp))->d.u;
 }
 
 /* set the unsigned integer value of the current counter */
 static inline void usetTmpData(const uint32 newValue) {
-	activeThread->tmp.data[activeThread->tmp.slotsUsed-1].u = newValue;
+	((struct TmpData*)dynarray_back(&activeThread->tmp))->d.u = newValue;
 }
 
 /* get the single precision floating point value from the counter */
 static inline float fgetTmpData(void) {
-	return activeThread->tmp.data[activeThread->tmp.slotsUsed-1].f;
+	return ((struct TmpData*)dynarray_back(&activeThread->tmp))->d.f;
 }
 
 static inline void fsetTmpData(const float newValue) {
-	activeThread->tmp.data[activeThread->tmp.slotsUsed-1].f = newValue;
+	((struct TmpData*)dynarray_back(&activeThread->tmp))->d.f = newValue;
 }
 
 static inline void* pgetTmpData(void) {
-	return activeThread->tmp.data[activeThread->tmp.slotsUsed-1].p;
+	return ((struct TmpData*)dynarray_back(&activeThread->tmp))->d.p;
 }
 
 static inline void psetTmpData(void *const newValue) {
-	activeThread->tmp.data[activeThread->tmp.slotsUsed-1].p = newValue;
+	((struct TmpData*)dynarray_back(&activeThread->tmp))->d.p = newValue;
 }
 
 /**
@@ -211,7 +208,7 @@ ThreadContext createThreadContext(const Block *const block) {
 
 		0,
 
-		{malloc(16*sizeof(union TmpData)), malloc(16*sizeof(Block *)), 0},
+		{0},
 
 		NULL,
 		NULL,
@@ -219,6 +216,7 @@ ThreadContext createThreadContext(const Block *const block) {
 	};
 	dynarray_init(&new.stack, sizeof(Value));
 	dynarray_new(new.blockStack, sizeof(struct BlockStackFrame));
+	dynarray_init(&new.tmp, sizeof(Value));
 	dynarray_new(new.parametersStack, sizeof(Value));
 	dynarray_new(new.nParametersStack, sizeof(uint16));
 	return new;
@@ -227,10 +225,9 @@ ThreadContext createThreadContext(const Block *const block) {
 void freeThreadContext(ThreadContext *const context) {
 	dynarray_done(&context->stack);
 	dynarray_free(context->blockStack);
+	dynarray_done(&context->tmp);
 	dynarray_free(context->parametersStack);
 	dynarray_free(context->nParametersStack);
-	free(context->tmp.data);
-	free(context->tmp.owners);
 }
 
 static void resetThreadContext(ThreadContext *const context) {
@@ -238,7 +235,7 @@ static void resetThreadContext(ThreadContext *const context) {
 	context->frame.level = 0;
 	context->frame.nextBlock = NULL;
 	dynarray_clear(context->blockStack);
-	context->tmp.slotsUsed = 0;
+	dynarray_clear(&context->tmp);
 	context->parameters = NULL;
 	dynarray_clear(context->parametersStack);
 	dynarray_clear(context->nParametersStack);

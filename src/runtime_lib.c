@@ -663,7 +663,7 @@ BF(broadcast_and_wait) {
 		char *msg;
 		size_t msgLen = toString(arg+0, &msg);
 		doYield = true;
-		if(startBroadcastThreads(msg, msgLen, (struct BroadcastThreads**)&getTmpDataPointer()->p)) // set the counter to the number of broadcast threads
+		if(startBroadcastThreads(msg, msgLen, (struct BroadcastThreads**)&getTmpDataPointer()->d.p)) // set the counter to the number of broadcast threads
 			return activeThread->topBlock;
 		else
 			return block;
