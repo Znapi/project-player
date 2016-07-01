@@ -471,10 +471,9 @@ BF(list_getContents) {
 	for(uint32 i = 0; i < utarray_len(list); ++i)
 		nRequiredChars += toString((Value*)utarray_eltptr(list, i), elements+i);
 
-	if(nRequiredChars == utarray_len(list))
-		++nRequiredChars; // make room for terminator
-	else
-		nRequiredChars += utarray_len(list);
+	++nRequiredChars; // make room for terminator
+	if(nRequiredChars != utarray_len(list))
+		nRequiredChars += utarray_len(list); // make room for spaces
 	str = strpool_alloc(nRequiredChars);
 	reportSlot->data.string = str;
 	reportSlot->type = STRING;
@@ -488,6 +487,7 @@ BF(list_getContents) {
 			str = stpcpy(str, elements[i]);
 			*(str++) = ' ';
 		}
+		*(str-1) = '\0';
 	}
 
 	free(elements);

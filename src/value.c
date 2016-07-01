@@ -207,8 +207,8 @@ Value strnToValue(const char *const string, const size_t length) {
 	}
 	else {
 		copy.type = STRING;
-		copy.data.string = malloc(length+1);
-		memcpy(copy.data.string, string, length);
+		copy.data.string = malloc((length+1)*sizeof(char));
+		memcpy(copy.data.string, string, length*sizeof(char));
 		copy.data.string[length] = '\0';
 	}
 	return copy;

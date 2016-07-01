@@ -41,7 +41,7 @@ const Value defaultValue = {{.floating = 0.0}, FLOATING};
 static void value_copy(Value *dst, Value *src) {
 	if(src->type == STRING) {
 		dst->type = STRING;
-		size_t l = strlen(src->data.string)*sizeof(char);
+		size_t l = (strlen(src->data.string)+1)*sizeof(char);
 		dst->data.string = malloc(l);
 		memcpy(dst->data.string, src->data.string, l);
 	}

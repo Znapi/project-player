@@ -29,8 +29,8 @@ char* extractString(const char *const str, size_t *const len) {
 	else
 		length = *len;
 
-	char *const newString = malloc(length+1);
-	memcpy(newString, str, length);
+	char *const newString = malloc((length+1)*sizeof(char));
+	memcpy(newString, str, length*sizeof(char));
 	newString[length] = '\0';
 	return newString;
 }
