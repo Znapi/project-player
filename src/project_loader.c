@@ -2,10 +2,26 @@
 	Project Loader
 	  project_loader.c
 
-	This module takes a project.json that is already loaded into memory, parses it, and
-	loads all the data needed to run the project into the runtime. The loading of the
-	project.json, as well as other resources used by the project, into memory is handled by
-	a different module.
+	The data that makes up a project can be organized into sprites, and the project.json is
+	also organized this way. For this reason, the parser focuses on a sprite at a time and
+	has a global `sprite` variable. The runtime focuses heavily on the scripts/threads in
+	each sprite though, and needs all scripts in the project organized by hat type. To
+	satisfy the runtime, global variables for each hat type that store references to scripts
+	are used.
+
+	This module performs the second and third parts of the loading process. It parses the
+	project.json into sprites and then loads data that was parsed into the runtime and
+	peripherals. The third part's implementation is straight forward.
+
+	Parsing is done by going though the project.json sequentially, and it only operates on
+	one sprite at a time. Data is parsed into either permanent memory locations or into
+	temporary, expandable data structures. Data in temporary data structures is "finalized"
+	or "extracted" when no more data is going to be put into it.
+
+	There are currently a few exceptions to the way parsing is done, but it works. For
+	instance, arrays of all threads for a single sprite are left in their expandable
+	data structures because of pointers pointing inside the data, but, when parsing scripts,
+	the space needed is precalculated by breaking the sequential order to avoid this issue.
 **/
 
 #include <stdlib.h>

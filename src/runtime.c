@@ -1,6 +1,12 @@
 /**
 	Runtime
 	  runtime.c
+
+	All the data in a project is organized into sprites, and many blocks interact with their
+	owner sprite, so a global variable is used to reference the sprite owning the currently
+	running script and there is a global hash table of all sprites. However, the runtime
+	heavily focuses on scripts/threads, and many global variables are used for storing and
+	organizing references to threads. This is the exactly as it is in project_loader.c.
 **/
 
 #include <stdio.h>
