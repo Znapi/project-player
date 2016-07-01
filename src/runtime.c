@@ -33,8 +33,9 @@
 
 static ThreadContext *activeThread;
 static SpriteContext *activeSprite;
+static dynarray *stack;
 
-static ThreadLink runningThreads = {{0}, NULL, NULL, NULL}; // the first item of the list is a stub that points to the first real item
+static ThreadLink runningThreads = {{{0}}, NULL, NULL, NULL}; // the first item of the list is a stub that points to the first real item
 
 static clock_t dtime;
 static const clock_t workTime = (clock_t).75f * 1000 / 30; // work only for 75% of the alloted frame time. taken from Flash version.
@@ -202,7 +203,7 @@ static void enterProcedure(const Block *const returnStack) {
 
 ThreadContext createThreadContext(const Block *const block) {
 	ThreadContext new = {
-		malloc(16*sizeof(Value)),
+		{0},
 
 		block,
 		{0, NULL},
@@ -216,14 +217,15 @@ ThreadContext createThreadContext(const Block *const block) {
 		NULL,
 		NULL,
 	};
+	dynarray_init(&new.stack, sizeof(Value));
 	dynarray_new(new.blockStack, sizeof(struct BlockStackFrame));
 	dynarray_new(new.parametersStack, sizeof(Value));
 	dynarray_new(new.nParametersStack, sizeof(uint16));
 	return new;
 }
 
-void freeThreadContext(const ThreadContext *const context) {
-	free(context->stack);
+void freeThreadContext(ThreadContext *const context) {
+	dynarray_done(&context->stack);
 	dynarray_free(context->blockStack);
 	dynarray_free(context->parametersStack);
 	dynarray_free(context->nParametersStack);
@@ -232,6 +234,7 @@ void freeThreadContext(const ThreadContext *const context) {
 }
 
 static void resetThreadContext(ThreadContext *const context) {
+	dynarray_clear(&context->stack);
 	context->frame.level = 0;
 	context->frame.nextBlock = NULL;
 	dynarray_clear(context->blockStack);
@@ -401,7 +404,7 @@ static const struct ProcedureLink *getProcedure(const char *const label, const s
 #include "blockhash/opstable.c"
 
 /* basically `evalCmd` in the Flash version */
-static const Block* interpret(const Block block[], Value stack[], Value *const reportSlot, const ufastest level) {
+static const Block* interpret(const Block block[], Value *const reportSlot, const ufastest level) {
 	Block next;
 	ufastest blockPos = 0, stackPos = 0;
 
@@ -410,18 +413,23 @@ static const Block* interpret(const Block block[], Value stack[], Value *const r
 
 		if(next.level == level) {
 			if(next.func == NULL) // constant argument
-				stack[stackPos] = *(next.p.value);
-			else // block argument (without any arguments itself)
-				(*next.func)(block + blockPos, stack+stackPos, NULL);
+				dynarray_push_back(stack, (void*)next.p.value);
+			else { // block argument (without any arguments itself)
+				dynarray_extend_back(stack);
+				(*next.func)(block + blockPos, dynarray_back(stack), NULL);
+			}
 			++stackPos;
 		}
 		else if(next.level > level) { // need to recurse
-			const Block *new = interpret(block + blockPos, stack + stackPos + 1, stack + stackPos, level + 1);
+			dynarray_extend_back(stack);
+			const Block *new = interpret(block + blockPos, dynarray_back(stack), level + 1);
 			++stackPos;
 			blockPos += new - (block + blockPos);
 		}
 		else /* next.level < level */ { // it must be a block
-			const Block *move = (*next.func)(block + blockPos, reportSlot, stack);
+			dynarray_pop_back_n(stack, stackPos-1);
+			const Block *move = (*next.func)(block + blockPos, reportSlot, dynarray_back(stack));
+			dynarray_pop_back(stack);
 			if(level == 1)
 				return move;
 			else
@@ -445,7 +453,7 @@ static bool stepActiveThread(void) {
 		dtime = (float)newTime - activeThread->lastTime;
 		activeThread->lastTime = newTime;
 
-		activeThread->frame.nextBlock = interpret(activeThread->frame.nextBlock, activeThread->stack, NULL, 1);
+		activeThread->frame.nextBlock = interpret(activeThread->frame.nextBlock, NULL, 1);
 		strpool_empty(); // free strings allocated to during evaluation
 
 		while(activeThread->frame.nextBlock == NULL) {
@@ -473,6 +481,7 @@ bool stepThreads(void) {
 			//printf("--thread\n");
 			activeThread = &current->thread; // set the active context
 			activeSprite = current->sprite;
+			stack = &activeThread->stack;
 
 			// step the thread
 			if(stepActiveThread()) { // if the thread should be killed

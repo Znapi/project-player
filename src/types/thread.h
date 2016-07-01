@@ -14,12 +14,13 @@ struct BlockStackFrame {
 	const struct Block *nextBlock;
 };
 
+// TODO: embed dynarrays into ThreadContext
 struct ThreadContext {
-	struct Value *stack; // A pointer to this thread's stack / argument pool TODO: make this a dynarray
+	dynarray stack; // thread's stack / argument pool
 
 	const struct Block *const topBlock;
 	struct BlockStackFrame frame;
-	dynarray *blockStack; // dynarray of BlockStackFrames TODO: embed dynarray into ThreadContext
+	dynarray *blockStack; // dynarray of BlockStackFrames
 
 	clock_t lastTime;
 

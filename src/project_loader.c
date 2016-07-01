@@ -473,7 +473,7 @@ static void parseScripts(void) {
 		bool isProcedure = false;
 		if(!tokceq("procDef")) { // TODO: use a hash table rather than repeatedly comparing strings
 			ThreadLink tmpThread = {
-				{0},
+				{{0}},
 				sprite,
 				NULL
 			};

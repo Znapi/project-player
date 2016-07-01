@@ -27,7 +27,7 @@ extern void setStage(struct SpriteContext *const stage);
 extern void setSprites(struct SpriteLink *const sprites);
 
 extern struct ThreadContext createThreadContext(const struct Block *const block);
-extern void freeThreadContext(const struct ThreadContext *const context);
+extern void freeThreadContext(struct ThreadContext *const context);
 
 extern bool stepThreads(void);
 
