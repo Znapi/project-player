@@ -471,9 +471,9 @@ BF(list_getContents) {
 	for(uint32 i = 0; i < utarray_len(list); ++i)
 		nRequiredChars += toString((Value*)utarray_eltptr(list, i), elements+i);
 
-	++nRequiredChars; // make room for terminator
 	if(nRequiredChars != utarray_len(list))
 		nRequiredChars += utarray_len(list); // make room for spaces
+	++nRequiredChars; // make room for terminator
 	str = strpool_alloc(nRequiredChars);
 	reportSlot->data.string = str;
 	reportSlot->type = STRING;
