@@ -41,9 +41,14 @@ static const clock_t workTime = (clock_t).75f * 1000 / 30; // work only for 75% 
 static bool doRedraw, doYield;
 
 static SpriteContext *stage;
+static struct SpriteLink *sprites; // hash table of sprites
 
 void setStage(SpriteContext *const stageContext) {
 	stage = stageContext;
+}
+
+void setSprites(struct SpriteLink *spriteHashTable) {
+	sprites = spriteHashTable;
 }
 
 static dynarray askResponse;

@@ -1,5 +1,10 @@
 #pragma once
 
+struct SpriteLink {
+	struct SpriteContext context;
+	UT_hash_handle hh;
+};
+
 struct BroadcastThreads {
 	dynarray *threads; // dynamic array of pointers to ThreadLinks
 	char *msg;
@@ -19,6 +24,7 @@ extern const blockfunc opsTable[];
 extern void initializeAskPrompt(void);
 
 extern void setStage(struct SpriteContext *const stage);
+extern void setSprites(struct SpriteLink *const sprites);
 
 extern struct ThreadContext createThreadContext(const struct Block *const block);
 extern void freeThreadContext(const struct ThreadContext *const context);

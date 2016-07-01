@@ -26,6 +26,7 @@
 #include "types/primitives.h"
 #include "types/value.h"
 #include "types/block.h"
+#include "types/sprite.h"
 
 #include "zip_loader.h"
 #include "project_loader.h"

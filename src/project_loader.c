@@ -592,6 +592,7 @@ static inline void initializeSpriteContext(SpriteContext *const c, const enum Sp
 	c->variables = NULL;
 	c->lists = NULL;
 
+	c->broadcastHashTable = NULL;
 	c->procedureHashTable = NULL;
 	c->whenClonedThreads = NULL;
 	c->nWhenClonedThreads = 0;
@@ -605,13 +606,13 @@ static inline void initializeSpriteContext(SpriteContext *const c, const enum Sp
 		= 0.0;
 }
 
-static dynarray *sprites;
+static dynarray *sprites; // array containing pointers to all sprites
 
 SpriteContext *newSprite(const enum SpriteScope scope) {
-	dynarray_extend_back(sprites);
-	SpriteContext *new = (SpriteContext*)dynarray_back(sprites);
-	initializeSpriteContext(new, scope);
-	return new;
+	struct SpriteLink *const new = malloc(sizeof(struct SpriteLink));
+	dynarray_push_back(sprites, (void*)&new);
+	initializeSpriteContext(&new->context, scope);
+	return &new->context;
 }
 
 /* Takes a pointer to the JSON in memory, and returns an array of all the blocks (as in
@@ -630,7 +631,7 @@ void parseJSON(void) {
 	procedureHashTable = NULL;
 	dynarray_new(whenClonedThreads, sizeof(ThreadLink*));
 
-	dynarray_new(sprites, sizeof(SpriteContext));
+	dynarray_new(sprites, sizeof(struct SpriteLink*));
 
 	// begin parsing
 	sprite = newSprite(STAGE);
@@ -680,7 +681,14 @@ void parseJSON(void) {
 }
 
 void loadIntoRuntime(void) {
-	setStage(dynarray_front(sprites));
+	setStage(&(*(struct SpriteLink**)dynarray_front(sprites))->context);
+
+	struct SpriteLink *spriteHashTable = NULL; // hash table of all sprites
+	struct SpriteLink **sprite = NULL;
+	while((sprite = (struct SpriteLink**)dynarray_next(sprites, sprite)) != NULL)
+		HASH_ADD_KEYPTR(hh, spriteHashTable, (*sprite)->context.name, strlen((*sprite)->context.name), *sprite);
+	dynarray_free(sprites);
+	setSprites(spriteHashTable);
 
 	ThreadLink **finalizedThreads;
 	unsigned nFinalizedThreads = dynarray_len(greenFlagThreads);
