@@ -620,10 +620,10 @@ BF(call) {
 	const size_t procNameLen = toString(arg+0, &procName);
 	const struct ProcedureLink *const procedure = getProcedure(procName, procNameLen);
 
-	dynarray_push_back(activeThread->nParametersStack, (void*)&procedure->nParameters);
+	dynarray_push_back(&activeThread->nParametersStack, (void*)&procedure->nParameters);
 	for(uint16 j = 1; j < procedure->nParameters+1; ++j)
-		dynarray_push_back(activeThread->parametersStack, (void*)(arg+j));
-	activeThread->parameters = (Value*)dynarray_eltptr(activeThread->parametersStack, dynarray_len(activeThread->parametersStack) - procedure->nParameters);
+		dynarray_push_back(&activeThread->parametersStack, (void*)(arg+j));
+	activeThread->parameters = (Value*)dynarray_eltptr(&activeThread->parametersStack, dynarray_len(&activeThread->parametersStack) - procedure->nParameters);
 
 	enterProcedure(block->p.next);
 	return procedure->script;

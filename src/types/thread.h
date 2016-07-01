@@ -23,15 +23,15 @@ struct ThreadContext {
 
 	const struct Block *const topBlock;
 	struct BlockStackFrame frame;
-	dynarray *blockStack; // dynarray of BlockStackFrames
+	dynarray blockStack; // dynarray of BlockStackFrames
 
 	clock_t lastTime;
 
 	dynarray tmp; // dynarray of struct TmpDatas
 
 	struct Value *parameters; // custom block parameters (just a pointer into the parametersStack)
-	dynarray *parametersStack; // dynarray of Values.
-	dynarray *nParametersStack; // dynarray of Values.
+	dynarray parametersStack; // dynarray of Values.
+	dynarray nParametersStack; // dynarray of Values.
 };
 typedef struct ThreadContext ThreadContext;
 

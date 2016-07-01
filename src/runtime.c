@@ -129,20 +129,20 @@ static inline void psetTmpData(void *const newValue) {
 /* this procedure should not be used by anything other than enterSubstack/Procedure */
 static inline void pushStackFrame(const Block *const returnStack) {
 	activeThread->frame.nextBlock = returnStack;
-	dynarray_push_back(activeThread->blockStack, &activeThread->frame);
+	dynarray_push_back(&activeThread->blockStack, &activeThread->frame);
 }
 
 /* this procedure should only be used by the interpreter */
 static inline void popStackFrame(void) {
 	if(activeThread->frame.level == 0) { // if we are inside a procedure, need to pop parameters as well
-		dynarray_pop_back_n(activeThread->parametersStack, *(uint16*)dynarray_back(activeThread->nParametersStack));
-		dynarray_pop_back(activeThread->nParametersStack);
-		if(dynarray_len(activeThread->nParametersStack) != 0)
-			activeThread->parameters = (Value*)dynarray_eltptr(activeThread->parametersStack,
-																												 dynarray_len(activeThread->parametersStack) - *(uint16*)dynarray_back(activeThread->nParametersStack));
+		dynarray_pop_back_n(&activeThread->parametersStack, *(uint16*)dynarray_back(&activeThread->nParametersStack));
+		dynarray_pop_back(&activeThread->nParametersStack);
+		if(dynarray_len(&activeThread->nParametersStack) != 0)
+			activeThread->parameters = (Value*)dynarray_eltptr(&activeThread->parametersStack,
+																												 dynarray_len(&activeThread->parametersStack) - *(uint16*)dynarray_back(&activeThread->nParametersStack));
 	}
-	activeThread->frame = *((struct BlockStackFrame*)dynarray_back_unchecked(activeThread->blockStack));
-	dynarray_pop_back(activeThread->blockStack);
+	activeThread->frame = *((struct BlockStackFrame*)dynarray_back_unchecked(&activeThread->blockStack));
+	dynarray_pop_back(&activeThread->blockStack);
 }
 
 /* convenience procedures for block functions */
@@ -204,41 +204,41 @@ ThreadContext createThreadContext(const Block *const block) {
 
 		block,
 		{0, NULL},
-		NULL,
+		{0},
 
 		0,
 
 		{0},
 
 		NULL,
-		NULL,
-		NULL,
+		{0},
+		{0},
 	};
 	dynarray_init(&new.stack, sizeof(Value));
-	dynarray_new(new.blockStack, sizeof(struct BlockStackFrame));
+	dynarray_init(&new.blockStack, sizeof(struct BlockStackFrame));
 	dynarray_init(&new.tmp, sizeof(Value));
-	dynarray_new(new.parametersStack, sizeof(Value));
-	dynarray_new(new.nParametersStack, sizeof(uint16));
+	dynarray_init(&new.parametersStack, sizeof(Value));
+	dynarray_init(&new.nParametersStack, sizeof(uint16));
 	return new;
 }
 
 void freeThreadContext(ThreadContext *const context) {
 	dynarray_done(&context->stack);
-	dynarray_free(context->blockStack);
+	dynarray_done(&context->blockStack);
 	dynarray_done(&context->tmp);
-	dynarray_free(context->parametersStack);
-	dynarray_free(context->nParametersStack);
+	dynarray_done(&context->parametersStack);
+	dynarray_done(&context->nParametersStack);
 }
 
 static void resetThreadContext(ThreadContext *const context) {
 	dynarray_clear(&context->stack);
 	context->frame.level = 0;
 	context->frame.nextBlock = NULL;
-	dynarray_clear(context->blockStack);
+	dynarray_clear(&context->blockStack);
 	dynarray_clear(&context->tmp);
 	context->parameters = NULL;
-	dynarray_clear(context->parametersStack);
-	dynarray_clear(context->nParametersStack);
+	dynarray_clear(&context->parametersStack);
+	dynarray_clear(&context->nParametersStack);
 }
 
 #define isThreadStopped(t) ((t).frame.nextBlock == NULL) // && (t).frame.level == 0 && dynarray_len((t).blockStack) == 0)
@@ -448,7 +448,7 @@ static bool stepActiveThread(void) {
 		strpool_empty(); // free strings allocated to during evaluation
 
 		while(activeThread->frame.nextBlock == NULL) {
-			if(dynarray_len(activeThread->blockStack) != 0)
+			if(dynarray_len(&activeThread->blockStack) != 0)
 				popStackFrame();
 			else
 				return true;
