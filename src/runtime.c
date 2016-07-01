@@ -404,40 +404,34 @@ static const struct ProcedureLink *getProcedure(const char *const label, const s
 #include "blockhash/opstable.c"
 
 /* basically `evalCmd` in the Flash version */
-static const Block* interpret(const Block block[], Value *const reportSlot, const ufastest level) {
-	Block next;
-	ufastest blockPos = 0, stackPos = 0;
+static const Block* interpret(const Block *block, Value *const reportSlot, const ufastest level) {
+	unsigned stackPos = 0;
 
 	do {
-		next = block[blockPos];
-
-		if(next.level == level) {
-			if(next.func == NULL) // constant argument
-				dynarray_push_back(stack, (void*)next.p.value);
+		if(block->level == level) {
+			if(block->func == NULL) // constant argument
+				dynarray_push_back(stack, (void*)block->p.value);
 			else { // block argument (without any arguments itself)
 				dynarray_extend_back(stack);
-				(*next.func)(block + blockPos, dynarray_back(stack), NULL);
+				(*block->func)(block, dynarray_back(stack), NULL);
 			}
 			++stackPos;
 		}
-		else if(next.level > level) { // need to recurse
+		else if(block->level > level) { // need to recurse
 			dynarray_extend_back(stack);
-			const Block *new = interpret(block + blockPos, dynarray_back(stack), level + 1);
+			block = interpret(block, dynarray_back(stack), level + 1);
 			++stackPos;
-			blockPos += new - (block + blockPos);
 		}
-		else /* next.level < level */ { // it must be a block
+		else /* block->level < level */ { // it must be a block
 			dynarray_pop_back_n(stack, stackPos-1);
-			const Block *move = (*next.func)(block + blockPos, reportSlot, dynarray_back(stack));
+			const Block *move = (*block->func)(block, reportSlot, dynarray_back(stack));
 			dynarray_pop_back(stack);
 			if(level == 1)
 				return move;
 			else
-				return &(block[blockPos]);
+				return block;
 		}
-
-		++blockPos;
-	} while(next.level >= level);
+	} while((block++)->level >= level);
 	// if we have exited the loop, some kind of error occured
 	puts("[ERROR]Interpreter exited loop because next.level < level!");
 	return NULL;
