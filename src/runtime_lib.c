@@ -690,9 +690,12 @@ BF(broadcast_and_wait) {
 /* Sensing */
 
 BF(prompt) { // TODO: this is a temporary command line based implementation until graphics are implemented
-	puts("PROMPT:");
-	scanf("%s", askResponse.d);
-	askResponse.i = strlen(askResponse.d) + 1;
+	char *msg;
+	toString(arg+0, &msg);
+	printf("%s prompts: %s\n>> ", activeSprite->name, msg);
+	fgets(askResponse.d, 1024, stdin);
+	askResponse.i = strlen(askResponse.d);
+	*(askResponse.d+askResponse.i-1) = '\0'; // remove newline
 	return block->p.next;
 }
 

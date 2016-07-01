@@ -17,7 +17,6 @@ struct BlockStackFrame {
 	const struct Block *nextBlock;
 };
 
-// TODO: embed dynarrays into ThreadContext
 struct ThreadContext {
 	dynarray stack; // thread's stack / argument pool
 
