@@ -358,7 +358,7 @@ BF(stop_scripts) {
 	return NULL; // stop this script
 }
 
-BF(clone) {
+BF(clone) { // TODO: add pointers to broadcast threads to broadcastHashTable
 	SpriteContext *clone = malloc(sizeof(SpriteContext));
 	memcpy(clone, activeSprite, sizeof(SpriteContext));
 	clone->scope = CLONE;

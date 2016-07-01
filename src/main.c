@@ -15,27 +15,21 @@
 
 #include "runtime.h"
 
-void** load(ufastest *const nData) {
+void load() {
+	puts("reading");
 	size_t jsonLength;
 	const char *const json = loadSB2(PROJECT_PATH, &jsonLength);
 	if(jsonLength == 0)
-		return NULL;
+		return;
 
-	puts("parsing");
-	void **data = loadProject(json, jsonLength, nData);
-	puts("done parsing.");
+	puts("parsing and loading");
+	loadProject(json, jsonLength);
+	puts("done parsing and loading.");
 	free((void*)json);
-
-	return data;
 }
 
 int main(void) {
-	ufastest nData;
-	void **data = load(&nData); // TODO: return array of pointers that need freeing at end of runtime
-	if(data == NULL) {
-		puts("parsing error");
-		return 1;
-	}
+	load();
 
 	initializeAskPrompt();
 
@@ -45,9 +39,6 @@ int main(void) {
 	while(stepThreads());
 	puts("done.");
 
-	while(nData != 0)
-		free(data[--nData]);
-	free(data);
-
+	// TODO: cleanup afterward
 	return 0;
 }

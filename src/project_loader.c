@@ -152,9 +152,11 @@ static void parseString(const char *str, const size_t len) {
 		dynarray_extract(charBuffer, (void**)&dst);													\
 	}
 
+static SpriteContext *sprite;
+
 /* Token position should be pointing to the key "variables", just before the array of
 	 variables, and it will be left pointing to the token just after the array. */
-static Variable* parseVariables(void) {
+static void parseVariables(void) {
 	++pos; // advance to array
 
 	uint16 propertiesToGo, i = 0, nVariablesToGo = TOKC.size; // number of variable objects to parse
@@ -189,12 +191,12 @@ static Variable* parseVariables(void) {
 		++i;
 	} while(--nVariablesToGo != 0);
 	++pos; // advance from last property
-	return variables;
+	sprite->variables = variables;
 }
 
 /* Token position should be pointing to the key "lists", just before the array of lists,
 	 and it will be left pointing to the token just after the array. */
-static List* parseLists(void) {
+static void parseLists(void) {
 	++pos; // advance to array
 	uint16 propertiesToGo, i = 0, nListsToGo = TOKC.size; // number of list objects to parse
 
@@ -231,7 +233,7 @@ static List* parseLists(void) {
 		++i;
 	} while(--nListsToGo != 0);
 	++pos; // advance from last property
-	return lists;
+	sprite->lists = lists;
 }
 
 /* pos should point to first block of script, and will be left pointing after script */
@@ -260,7 +262,6 @@ static void allocateScript(Block **const blocks, Value **const values, uint16 nT
 }
 
 static cmph_t *blockMphf;
-static blockhash noop_hash;
 
 static inline uint32 hash(const char *const key, const size_t keyLen, cmph_t *mphf) {
 	return cmph_search(mphf, key, keyLen);
@@ -358,57 +359,66 @@ static enum BlockType parseBlock(Block **const blocks, Value **const values, con
 	 last token parsed. *blocks and *values will be left pointing after the last items made. */
 static void parseStack(Block **const blocks, Value **const values, uint16 nStackBlocksToGo, Block **link) {
 	Block *block = *blocks;
-	do {
-		if(link != NULL)
-			*link = block;
+	if(nStackBlocksToGo != 0) {
+		do {
+			if(link != NULL)
+				*link = block;
 
-		switch(parseBlock(&block, values, 1)) {
+			switch(parseBlock(&block, values, 1)) {
 
-		case BLOCK_TYPE_S: // 1 substack: 1 following (normal stack block)
-			link = &(block->p.next);
-			++block;
-			++pos;
-			break;
+			case BLOCK_TYPE_S: // 1 substack: 1 following (normal stack block)
+				link = &(block->p.next);
+				++block;
+				++pos;
+				break;
 
-		case BLOCK_TYPE_C: // 2 substacks: 1 inner and 1 following
-			block->p.substacks = malloc(2*sizeof(Block*));
-			link = block->p.substacks+1;
-			++block;
-			pos += 2; // advance to first block of substack
-			parseStack(&block, values, tokens[pos-1].size, (block-1)->p.substacks+0);
-			break;
+			case BLOCK_TYPE_C: // 2 substacks: 1 inner and 1 following
+				block->p.substacks = malloc(2*sizeof(Block*));
+				link = block->p.substacks+1;
+				++block;
+				pos += 2; // advance to first block of substack
+				parseStack(&block, values, tokens[pos-1].size, (block-1)->p.substacks+0);
+				break;
 
-		case BLOCK_TYPE_CF: // 1 substack: 1 inner and no following
-			block->p.substacks = malloc(1*sizeof(Block*));
-			link = NULL;
-			++block;
-			pos += 2;
-			parseStack(&block, values, tokens[pos-1].size, (block-1)->p.substacks+0);
-			break;
+			case BLOCK_TYPE_CF: // 1 substack: 1 inner and no following
+				block->p.substacks = malloc(1*sizeof(Block*));
+				link = NULL;
+				++block;
+				pos += 2;
+				parseStack(&block, values, tokens[pos-1].size, (block-1)->p.substacks+0);
+				break;
 
-			Block **substacks;
-		case BLOCK_TYPE_E: // 3 substacks: 2 inner and 1 following
-			substacks = malloc(3*sizeof(Block*));
-			block->p.substacks = substacks;
-			link = substacks+2;
-			++block;
-			pos += 2;
-			parseStack(&block, values, tokens[pos-1].size, substacks+0);
-			++pos;
-			parseStack(&block, values, tokens[pos-1].size, substacks+1);
-			break;
+				Block **substacks;
+			case BLOCK_TYPE_E: // 3 substacks: 2 inner and 1 following
+				substacks = malloc(3*sizeof(Block*));
+				block->p.substacks = substacks;
+				link = substacks+2;
+				++block;
+				pos += 2;
+				parseStack(&block, values, tokens[pos-1].size, substacks+0);
+				++pos;
+				parseStack(&block, values, tokens[pos-1].size, substacks+1);
+				break;
 
-		default:
-			puts("[ERROR]Encountered a non-stacking block where a stacking block was expected.");
-			pos -= 2;
-			skip();
-
-		}
-	} while(--nStackBlocksToGo != 0);
+			default:
+				puts("[ERROR]Encountered a non-stacking block where a stacking block was expected.");
+				pos -= 2;
+				skip();
+			}
+		} while(--nStackBlocksToGo != 0);
+	}
+	*link = NULL;
 	*blocks = block;
 }
 
-static struct BroadcastThreads *broadcastsHashTable = NULL; // could use a parameter so that this doesn't have to be global, but, ah well
+// collections of references to threads for the runtime
+static dynarray *greenFlagThreads;
+static struct BroadcastThreads *broadcastsHashTable; // could use a parameter so that this doesn't have to be global, but, ah well
+
+// temporary storage for collections of references to threads for each sprite
+static dynarray *threads;
+static struct ProcedureLink *procedureHashTable;
+static dynarray *whenClonedThreads;
 
 // TODO: why do broadcasts get a procedure outside of parseScripts, but procedures don't?
 static inline dynarray* addBroadcast(char *const msg, const uint32 msgLen) {
@@ -418,25 +428,16 @@ static inline dynarray* addBroadcast(char *const msg, const uint32 msgLen) {
 		newBroadcast = malloc(sizeof(struct BroadcastThreads));
 		dynarray_new(newBroadcast->threads, sizeof(ThreadLink*));
 		newBroadcast->msg = msg;
+		newBroadcast->nullifyOnRestart = NULL;
 		HASH_ADD_KEYPTR(hh, broadcastsHashTable, newBroadcast->msg, msgLen, newBroadcast);
 	}
 	return newBroadcast->threads;
 }
 
-static dynarray *greenFlagThreads;
-
-// sprite specific outputs filled by parseScripts
-static uint16 nThreads;
-static struct ProcedureLink *procedureHashTable;
-static dynarray *whenClonedThreads;
-
-static ThreadLink* parseScripts(SpriteContext *sprite) {
-	dynarray *threads;
-	Block **scriptPointer;
+static void parseScripts(void) {
 	dynarray_new(threads, sizeof(ThreadLink));
-	procedureHashTable = NULL;
-	dynarray_clear(whenClonedThreads);
 
+	Block **scriptPointer;
 	++pos; // advance to array of scripts
 	uint16 nScriptsToGo = TOKC.size;
 	++pos; // advance to first script ([xpos, ypos, [blocks...]])
@@ -531,32 +532,32 @@ static ThreadLink* parseScripts(SpriteContext *sprite) {
 		}
 	} while(--nScriptsToGo != 0);
 
-	// finalize ThreadLink array
-	ThreadLink *threadsFinalized;
-	nThreads = dynarray_len(threads);
-	dynarray_finalize(threads, (void**)&threadsFinalized);
+	// load into sprite
+	sprite->nThreads = dynarray_len(threads);
+	sprite->threads = (ThreadLink*)threads->d; // TODO: do a dynarray_extract and use indices to build collections of references to scripts
+	sprite->procedureHashTable = procedureHashTable;
+	sprite->nWhenClonedThreads = dynarray_len(whenClonedThreads);
+	dynarray_extract(whenClonedThreads, (void**)&sprite->whenClonedThreads);
 
-	return threadsFinalized;
+	// cleanup
+	procedureHashTable = NULL;
+	dynarray_clear(whenClonedThreads);
 }
 
-static bool attemptToParseSpriteProperty(SpriteContext *sprite) {
+static bool attemptToParseSpriteProperty(void) {
 	if(tokceq("variables")) {
 		puts("variables");
-		sprite->variables = parseVariables();
+		parseVariables();
 		return true;
 	}
 	else if(tokceq("lists")) {
 		puts("lists");
-		sprite->lists = parseLists();
+		parseLists();
 		return true;
 	}
 	else if(tokceq("scripts")) {
 		puts("scripts");
-		sprite->threads = parseScripts(sprite);
-		sprite->nThreads = nThreads;
-		sprite->procedureHashTable = procedureHashTable;
-		sprite->nWhenClonedThreads = dynarray_len(whenClonedThreads);
-		dynarray_extract(whenClonedThreads, (void**)&sprite->whenClonedThreads);
+		parseScripts();
 		return true;
 	}
 	else if(tokceq("objName")) {
@@ -588,85 +589,95 @@ static inline void initializeSpriteContext(SpriteContext *const c, const enum Sp
 		= 0.0;
 }
 
+static dynarray *sprites;
+
+SpriteContext *newSprite(const enum SpriteScope scope) {
+	dynarray_extend_back(sprites);
+	SpriteContext *new = (SpriteContext*)dynarray_back(sprites);
+	initializeSpriteContext(new, scope);
+	return new;
+}
+
 /* Takes a pointer to the JSON in memory, and returns an array of all the blocks (as in
 	 blocks of Blocks and Values) that need to be freed when the player is stopped. */
-// TODO: refractor this
-void** loadProject(const char *const projectJson, const size_t jsonLength, ufastest *const nData) {
-	// tokenize
-	json = projectJson;
-	tokenizeJson(jsonLength);
-
-	// parse
+void parseJSON(void) {
+	// initialize
 	blockMphf = loadBlockHashFunc();
-	noop_hash = cmph_search(blockMphf, "noop", 4);
 
 	charCd = iconv_open("UTF-8", "UTF-32LE"); // LE for little-endian
 	if(charCd == (iconv_t)-1) puts("[ERROR]Could not create encoding conversion descriptor.");
 	dynarray_new(charBuffer, sizeof(char));
 
 	dynarray_new(greenFlagThreads, sizeof(ThreadLink*));
+	broadcastsHashTable = NULL;
+
+	procedureHashTable = NULL;
 	dynarray_new(whenClonedThreads, sizeof(ThreadLink*));
 
-	dynarray *sprites;
 	dynarray_new(sprites, sizeof(SpriteContext));
-	dynarray_extend_back(sprites);
-	SpriteContext *stageContext = (SpriteContext*)dynarray_back(sprites);
-	initializeSpriteContext(stageContext, STAGE);
 
+	// begin parsing
+	sprite = newSprite(STAGE);
 	ufastest nKeysToGo = tokens[0].size;
 	pos = 1;
 	do {
-		if(!attemptToParseSpriteProperty(stageContext)) {
+		if(!attemptToParseSpriteProperty()) {
 			if(tokceq("children")) {
 				puts("children");
 				++pos; // advance to array of "children"
 				ufastest nChildrenToGo = TOKC.size;
 				++pos; // advance to first child
-				do {
-					++pos; // advance to first key of next child
-					if(tokceq("objName")) { // if it is a sprite
+				if(nChildrenToGo != 0) {
+					do {
+						++pos; // advance to first key of next child
+						if(tokceq("objName")) { // if it is a sprite
 
-						--pos; // advance back to containing object
-						ufastest nSpriteKeysToGo = TOKC.size;
+							--pos; // advance back to containing object
+							ufastest nSpriteKeysToGo = TOKC.size;
+							sprite = newSprite(SPRITE);
+							++pos; // advance back to first key
+							do {
+								if(!attemptToParseSpriteProperty())
+									skip();
+							} while(--nSpriteKeysToGo != 0);
 
-						dynarray_extend_back(sprites);
-						SpriteContext *newSprite = (SpriteContext*)dynarray_back(sprites);
-						initializeSpriteContext(newSprite, SPRITE);
-
-						++pos; // advance back to first key
-						do {
-							if(!attemptToParseSpriteProperty(newSprite))
-								skip();
-						} while(--nSpriteKeysToGo != 0);
-
-					}
-					else { // it is not a sprite
-						--pos; skip();
-					}
-				} while(--nChildrenToGo != 0);
+						}
+						else { // it is not a sprite
+							--pos; skip();
+						}
+					} while(--nChildrenToGo != 0);
+					sprite = dynarray_front(sprites);
+				}
 			}
 			else // key isn't significant
 				skip();
 		}
 	} while(--nKeysToGo != 0);
 
-	// load into runtime
-	setStage(stageContext);
-
-	ThreadLink **greenFlagThreadsFinalized;
-	unsigned nGreenFlagThreads = dynarray_len(greenFlagThreads);
-	dynarray_finalize(greenFlagThreads, (void**)&greenFlagThreadsFinalized);
-	setGreenFlagThreads(greenFlagThreadsFinalized, nGreenFlagThreads);
-
-	dynarray_free(whenClonedThreads);
-
-	setBroadcastsHashTable(broadcastsHashTable);
-
-	// free resources
+	// cleanup
 	free(tokens);
 	cmph_destroy(blockMphf);
 	dynarray_free(charBuffer);
 
-	*nData = 0;
-	return malloc(1);
+	procedureHashTable = NULL;
+	dynarray_free(whenClonedThreads);
+}
+
+void loadIntoRuntime(void) {
+	setStage(dynarray_front(sprites));
+
+	ThreadLink **finalizedThreads;
+	unsigned nFinalizedThreads = dynarray_len(greenFlagThreads);
+	dynarray_finalize(greenFlagThreads, (void**)&finalizedThreads);
+	setGreenFlagThreads(finalizedThreads, nFinalizedThreads);
+
+	setBroadcastsHashTable(broadcastsHashTable);
+}
+
+void loadProject(const char *const projectJson, const size_t jsonLength) {
+	json = projectJson;
+
+	tokenizeJson(jsonLength);
+	parseJSON();
+	loadIntoRuntime();
 }
