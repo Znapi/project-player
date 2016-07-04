@@ -6,7 +6,7 @@ struct SpriteLink {
 };
 
 struct BroadcastThreads {
-	dynarray *threads; // dynamic array of pointers to ThreadLinks
+	struct ThreadList threadList;
 	char *msg;
 	struct BroadcastThreads **nullifyOnRestart;
 	UT_hash_handle hh;

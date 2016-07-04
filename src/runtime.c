@@ -262,9 +262,9 @@ static void startThread(ThreadLink *const link) {
 
 // start threads using an array of pointers to the threads
 static void startThreadsInArray(ThreadLink *const *const threads, uint16 nThreads) {
-	do {
-		startThread(threads[--nThreads]);
-	} while(nThreads != 0);
+	while(nThreads-- != 0) {
+		startThread(threads[nThreads]);
+	}
 }
 
 static ThreadLink* stopThread(ThreadLink *const stopped) {
@@ -326,7 +326,7 @@ void setBroadcastsHashTable(struct BroadcastThreads *const hashTable) {
 void freeBroadcastsHashTable(void) {
 	struct BroadcastThreads *current, *next;
 	HASH_ITER(hh, broadcastsHashTable, current, next) {
-		dynarray_free(current->threads);
+		//dynarray_free(current->threads); // TODO
 		HASH_DEL(broadcastsHashTable, current);
 		free(current);
 	}
@@ -348,13 +348,24 @@ static bool startBroadcastThreads(const char *const msg, const size_t msgLen, st
 		*nullifyOnRestart = broadcastThreadsLink;
 
 	bool r = false;
-	dynarray *threads = broadcastThreadsLink->threads;
+	struct ThreadList *threadList = &broadcastThreadsLink->threadList;
+	ThreadLink *threadLink;
+	for(threadList = &broadcastThreadsLink->threadList; threadList != NULL; threadList = threadList->next) {
+		threadLink = threadList->array[0];
+		for(uint16 i = 0; i < threadList->nThreads; ++i) {
+			if(&threadLink->thread == activeThread)
+				r = true;
+			startThread(threadLink);
+			++threadLink;
+		}
+	}
+	/*dynarray *threads = broadcastThreadsLink->threads;
 	for(uint16 i = 0; i < dynarray_len(threads); ++i) {
 		ThreadLink **thread = (ThreadLink**)dynarray_eltptr(threads, i);
 		if(&(*thread)->thread == activeThread)
 			r = true;
 		startThread(*thread);
-	}
+		}*/
 	return r;
 }
 

@@ -358,8 +358,8 @@ BF(stop_scripts) {
 	return NULL; // stop this script
 }
 
-BF(clone) { // TODO: add pointers to broadcast threads to broadcastHashTable
-	SpriteContext *clone = malloc(sizeof(SpriteContext));
+BF(clone) {
+	/*SpriteContext *clone = malloc(sizeof(SpriteContext));
 	memcpy(clone, activeSprite, sizeof(SpriteContext));
 	clone->scope = CLONE;
 
@@ -379,12 +379,12 @@ BF(clone) { // TODO: add pointers to broadcast threads to broadcastHashTable
 	for(uint16 i = 0; i < clone->nWhenClonedThreads; ++i)
 		clone->whenClonedThreads[i] = (long)(activeSprite->whenClonedThreads[i] - activeSprite->threads) + clone->threads; // simply offset the pointers, so that they are based on the location of the clone's threads rather than the old sprite's threads
 
-	startThreadsInArray(clone->whenClonedThreads, clone->nWhenClonedThreads);
+		startThreadsInArray(clone->whenClonedThreads, clone->nWhenClonedThreads);*/
 	return block->p.next;
 }
 
 BF(destroy_clone) {
-	stopThreadsForSprite(true);
+	/*stopThreadsForSprite(true);
 
 	//free((void*)activeSprite->name);
 
@@ -397,7 +397,7 @@ BF(destroy_clone) {
 
 	free(activeSprite->whenClonedThreads);
 
-	free(activeSprite);
+	free(activeSprite);*/
 	return block->p.next;
 }
 
@@ -673,14 +673,18 @@ BF(broadcast_and_wait) {
 		if(broadcastLink == NULL) // if the broadcast message was sent by another thread
 			return block->p.next; // don't continue; start at the top
 		else { // check each broadcast thread for whether or not it was stopped
-		  ThreadLink **threadPtr = (ThreadLink**)dynarray_front(broadcastLink->threads);
-			do {
-				if(!isThreadStopped((*threadPtr)->thread)) {
-					doYield = true;
-					return block;
+			struct ThreadList *threadList;
+			ThreadLink *threadLink;
+			for(threadList = &broadcastLink->threadList; threadList != NULL; threadList = threadList->next) { // TODO: THREADLIST_ITER()
+				threadLink = threadList->array[0];
+				for(uint16 i = 0; i < threadList->nThreads; ++i) {
+					if(!isThreadStopped(threadLink->thread)) {
+						doYield = true;
+						return block;
+					}
+					++threadLink;
 				}
-				threadPtr = (ThreadLink**)dynarray_next(broadcastLink->threads, threadPtr);
-			} while(threadPtr != NULL);
+			}
 			broadcastLink->nullifyOnRestart = NULL; // empty this field out so that when the message is broadcast again we don't overwrite memory
 			return block->p.next; // if all broadcast threads are stopped, continue on to next block
 		}

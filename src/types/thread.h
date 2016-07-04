@@ -3,6 +3,7 @@
 //#include <time.h>              // not all modules need the functionality provided in time.h
 #include <sys/_types/_clock_t.h> // instead, only define the type clock_t, which is all that is needed from time.h to compile this
 
+/* individual threads */
 struct TmpData {
 	union {
 		uint32 u;
@@ -34,12 +35,25 @@ struct ThreadContext {
 };
 typedef struct ThreadContext ThreadContext;
 
+/* collections of threads */
+
+/* doubly linked lists of threads */
+/* used for making list of running threads */
 struct ThreadLink {
 	struct ThreadContext thread;
 	struct SpriteContext *sprite;
 	struct ThreadLink *next, *prev;
 };
 typedef struct ThreadLink ThreadLink;
+
+/* doubly linked lists of arrays of pointers threads */
+/* used for making collections of all threads for a certain hat type, where each array of
+	 threads is for a different sprite. */
+struct ThreadList {
+	struct ThreadLink **array;
+	uint16 nThreads;
+	struct ThreadList *prev, *next;
+};
 
 /*
 	Evaluating Blocks

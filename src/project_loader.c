@@ -19,9 +19,8 @@
 	or "extracted" when no more data is going to be put into it.
 
 	There are currently a few exceptions to the way parsing is done, but it works. For
-	instance, arrays of all threads for a single sprite are left in their expandable
-	data structures because of pointers pointing inside the data, but, when parsing scripts,
-	the space needed is precalculated by breaking the sequential order to avoid this issue.
+	instance, when parsing scripts, the space needed is precalculated by breaking the
+	sequential order.
 **/
 
 #include <stdlib.h>
@@ -427,51 +426,154 @@ static void parseStack(Block **const blocks, Value **const values, uint16 nStack
 	*blocks = block;
 }
 
-// collections of references to threads for the runtime
-static dynarray *greenFlagThreads;
-static struct BroadcastThreads *broadcastsHashTable; // could use a parameter so that this doesn't have to be global, but, ah well
+// collections of references to threads to load into the runtime
+static dynarray *greenFlagThreads; // dynarray of ThreadLink*s
+static struct BroadcastThreads *broadcastsHashTable;
 
 // temporary storage for collections of references to threads for each sprite
 static dynarray *threads;
-static struct ProcedureLink *procedureHashTable;
-static dynarray *whenClonedThreads;
+enum HatType {
+	WHEN_GREEN_FLAG_CLICKED,
+	WHEN_I_RECEIVE,
+	WHEN_CLONED,
+};
+static dynarray *threadTypes; // for each ThreadLink in threads, a corresponding HatType is in here for organizing threads by hat typ
 
-// TODO: why do broadcasts get a procedure outside of parseScripts, but procedures don't?
-static inline dynarray* addBroadcast(char *const msg, const uint32 msgLen) {
+static uint16 nWhenClonedThreads;
+
+static dynarray *broadcastTypes; // for each ThreadLink in threads for a WHEN_I_RECIEVE hat type, there is a pointer to a ThreadLists in broadcastsHashTable here
+
+static struct ProcedureLink *procedureHashTable;
+
+static inline void addBroadcast(void) {
+	// get message
+	++pos; // advance to message
+	char *msg;
+	tokcext(msg);
+	--pos; // return to opstring
+
+	// create or get global entry in broadcastsHashTable
 	struct BroadcastThreads *newBroadcast;
 	HASH_FIND_STR(broadcastsHashTable, msg, newBroadcast);
-	if(newBroadcast == NULL) {
+	if(newBroadcast == NULL) { // create the entry
 		newBroadcast = malloc(sizeof(struct BroadcastThreads));
-		dynarray_new(newBroadcast->threads, sizeof(ThreadLink*));
 		newBroadcast->msg = msg;
 		newBroadcast->nullifyOnRestart = NULL;
-		HASH_ADD_KEYPTR(hh, broadcastsHashTable, newBroadcast->msg, msgLen, newBroadcast);
+		HASH_ADD_KEYPTR(hh, broadcastsHashTable, newBroadcast->msg, charBuffer->i-1, newBroadcast);
+
+		newBroadcast->threadList.array = NULL;
+		newBroadcast->threadList.prev = newBroadcast->threadList.next = NULL;
+		newBroadcast->threadList.nThreads = 1;
 	}
-	return newBroadcast->threads;
+	else if(newBroadcast->threadList.array != NULL) {
+		struct ThreadList *threadList = malloc(sizeof(struct ThreadList));
+		memcpy(threadList, &newBroadcast->threadList, sizeof(struct ThreadList));
+		threadList->prev = &newBroadcast->threadList;
+		if(threadList->next != NULL)
+			threadList->next->prev = threadList;
+
+		newBroadcast->threadList.array = NULL;
+		newBroadcast->threadList.next = threadList;
+		newBroadcast->threadList.nThreads = 1;
+	}
+	else
+		++newBroadcast->threadList.nThreads;
+
+	struct ThreadList *tl = &newBroadcast->threadList;
+	dynarray_push_back(broadcastTypes, &tl);
+}
+
+static inline Block** addProcedure(void) {
+	struct ProcedureLink *newProc = malloc(sizeof(struct ProcedureLink));
+
+	++pos; // advance to procedure label
+	tokcext(newProc->label);
+
+	++pos; // advance to array of parameter declarations
+	nParameters = TOKC.size;
+	newProc->nParameters = nParameters;
+
+	HASH_ADD_KEYPTR(hh, procedureHashTable, newProc->label, charBuffer->i-1, newProc);
+
+	if(nParameters != 0) { // store names of parameter names, in order
+		procedureParameters = malloc(nParameters*sizeof(char*));
+		for(uint16 i = 0; i < nParameters; ++i) {
+			++pos;
+			tokcext(procedureParameters[i]);
+		}
+	}
+	pos -= nParameters + 2; // return to opstring of procedure
+
+	return &newProc->script;
+}
+
+static inline void buildThreadCollections(void) {
+	enum HatType *hatType = NULL;
+	struct ThreadList **broadcastThreadList = NULL;
+	ThreadLink *thread = sprite->threads;
+#define PUSH_ONTO_THREADLIST(list_ptr) {				\
+		ThreadLink **p = (list_ptr)->array+1;				\
+		while(*p != NULL) ++p;												\
+		*p = thread;																\
+	}
+
+	while((hatType = dynarray_next(threadTypes, hatType)) != NULL) {
+		switch(*hatType) {
+		case WHEN_GREEN_FLAG_CLICKED:
+			dynarray_push_back(greenFlagThreads, &thread);
+			break;
+		case WHEN_I_RECEIVE:
+			broadcastThreadList = dynarray_next(broadcastTypes, broadcastThreadList);
+			if((*broadcastThreadList)->array == NULL) {
+				(*broadcastThreadList)->array = calloc((*broadcastThreadList)->nThreads, sizeof(ThreadLink*));
+				(*broadcastThreadList)->array[0] = thread;
+			}
+			else
+				PUSH_ONTO_THREADLIST((*broadcastThreadList));
+			break;
+		case WHEN_CLONED:
+			if(sprite->whenClonedThreads.nThreads == 0) {
+				sprite->whenClonedThreads.nThreads = nWhenClonedThreads;
+				sprite->whenClonedThreads.array = calloc(nWhenClonedThreads, sizeof(ThreadLink*));
+				sprite->whenClonedThreads.array[0] = thread;
+			}
+			else
+				PUSH_ONTO_THREADLIST(&sprite->whenClonedThreads);
+			break;
+		}
+		++thread;
+	}
+#undef PUSH_ONTO_THREADLIST
 }
 
 static void parseScripts(void) {
-	dynarray_new(threads, sizeof(ThreadLink));
+	// cleanup after last run
+	dynarray_clear(threads);
+	dynarray_clear(threadTypes);
+	nWhenClonedThreads = 0;
+	dynarray_clear(broadcastTypes);
+	procedureHashTable = NULL;
 
-	Block **scriptPointer;
+	// begin parsing
 	++pos; // advance to array of scripts
 	uint16 nScriptsToGo = TOKC.size;
 	++pos; // advance to first script ([xpos, ypos, [blocks...]])
 	do { // for each script
 		pos += 3; // advance past script position to script (array of blocks)
 		const uint16 nStackBlocks = TOKC.size - 1;
-
-		// First, check if the script isn't empty and starts with a hat block, then organize
-		// based on which hat block it is topped with.
-		if(nStackBlocks == 0) { // if this is a lone block
-			pos -= 3; // go back to script
-			skip(); // and skip it
+		if(nStackBlocks == 0) { // if it is a lone block
+			skip();
 			continue;
 		}
-		pos += 2; // advance to opstring of first block
 
+		Block **scriptPointer;
+		pos += 2; // advance to hat block's opstring
 		bool isProcedure = false;
-		if(!tokceq("procDef")) { // TODO: use a hash table rather than repeatedly comparing strings
+		if(tokceq("procDef")) {
+			isProcedure = true;
+			scriptPointer = addProcedure();
+		}
+		else { // TODO: use a hash table rather than repeatedly comparing strings
 			ThreadLink tmpThread = {
 				{{0}},
 				sprite,
@@ -482,50 +584,28 @@ static void parseScripts(void) {
 			ThreadLink *newThread = (ThreadLink*)dynarray_back(threads);
 			scriptPointer = (Block**)&newThread->thread.topBlock;
 
+			enum HatType hatType;
 			if(tokceq("whenGreenFlag")) {
-				dynarray_push_back(greenFlagThreads, &newThread);
+				hatType = WHEN_GREEN_FLAG_CLICKED;
 			}
 			else if(tokceq("whenIReceive")) {
-				++pos;
-				char *msg;
-				tokcext(msg);
-				dynarray *broadcastThreads = addBroadcast(msg, charBuffer->i - 1);
-				dynarray_push_back(broadcastThreads, &newThread);
-				--pos;
+				hatType = WHEN_I_RECEIVE;
+				addBroadcast();
 			}
 			else if(tokceq("whenCloned")) {
-				dynarray_push_back(whenClonedThreads, &newThread);
+				++nWhenClonedThreads;
+				hatType = WHEN_CLONED;
 			}
 			else { // it is not a hat
+				freeThreadContext(&tmpThread.thread);
+				dynarray_pop_back(threads);
 				pos -= 4; // go back to script ([xpos, ypos, [blocks...]])
 				skip(); // skip the script
 				continue;
 			}
+			dynarray_push_back(threadTypes, &hatType);
 		}
-		else {
-			isProcedure = true;
-			struct ProcedureLink *newProc = malloc(sizeof(struct ProcedureLink));
-
-			++pos; // advance to procedure label
-			tokcext(newProc->label);
-
-			++pos; // advance to array of parameter declarations
-			nParameters = TOKC.size;
-			newProc->nParameters = nParameters;
-
-			scriptPointer = &newProc->script;
-			HASH_ADD_KEYPTR(hh, procedureHashTable, newProc->label, charBuffer->i-1, newProc);
-
-			if(nParameters != 0) { // store names of parameter names, in order
-				procedureParameters = malloc(nParameters*sizeof(char*));
-				for(uint16 i = 0; i < nParameters; ++i) {
-					++pos;
-					tokcext(procedureParameters[i]);
-				}
-			}
-			pos -= nParameters + 2; // return to opstring of procedure
-		}
-		--pos;
+		--pos; // go back to hat block (array)
 		skip(); // advance to past hat block
 
 		// allocate enough space for all the Blocks and Values that will make it up
@@ -550,14 +630,9 @@ static void parseScripts(void) {
 
 	// load into sprite
 	sprite->nThreads = dynarray_len(threads);
-	sprite->threads = (ThreadLink*)threads->d; // TODO: do a dynarray_extract and use indices to build collections of references to scripts
+	dynarray_extract(threads, (void**)&sprite->threads);
 	sprite->procedureHashTable = procedureHashTable;
-	sprite->nWhenClonedThreads = dynarray_len(whenClonedThreads);
-	dynarray_extract(whenClonedThreads, (void**)&sprite->whenClonedThreads);
-
-	// cleanup
-	procedureHashTable = NULL;
-	dynarray_clear(whenClonedThreads);
+	buildThreadCollections();
 }
 
 static bool attemptToParseSpriteProperty(void) {
@@ -592,10 +667,10 @@ static inline void initializeSpriteContext(SpriteContext *const c, const enum Sp
 	c->variables = NULL;
 	c->lists = NULL;
 
-	c->broadcastHashTable = NULL;
 	c->procedureHashTable = NULL;
-	c->whenClonedThreads = NULL;
-	c->nWhenClonedThreads = 0;
+	c->broadcastHashTable = NULL;
+	c->whenClonedThreads.array = NULL;
+	c->whenClonedThreads.nThreads = 0;
 
 	c->xpos = c->ypos = 0.0;
 	c->direction = 90.0;
@@ -628,10 +703,12 @@ void parseJSON(void) {
 	dynarray_new(greenFlagThreads, sizeof(ThreadLink*));
 	broadcastsHashTable = NULL;
 
-	procedureHashTable = NULL;
-	dynarray_new(whenClonedThreads, sizeof(ThreadLink*));
+	dynarray_new(threads, sizeof(ThreadLink));
+	dynarray_new(threadTypes, sizeof(enum HatType));
+	dynarray_new(broadcastTypes, sizeof(struct ThreadList*));
 
 	dynarray_new(sprites, sizeof(struct SpriteLink*));
+	dynarray_ensure_size(sprites, 64); // TODO: don't leave sprites in dynamic data structure
 
 	// begin parsing
 	sprite = newSprite(STAGE);
@@ -663,7 +740,7 @@ void parseJSON(void) {
 							--pos; skip();
 						}
 					} while(--nChildrenToGo != 0);
-					sprite = dynarray_front(sprites);
+					sprite = &(*(struct SpriteLink**)dynarray_front(sprites))->context;
 				}
 			}
 			else // key isn't significant
@@ -676,8 +753,10 @@ void parseJSON(void) {
 	cmph_destroy(blockMphf);
 	dynarray_free(charBuffer);
 
+	dynarray_free(threads);
+	dynarray_free(threadTypes);
+	dynarray_free(broadcastTypes);
 	procedureHashTable = NULL;
-	dynarray_free(whenClonedThreads);
 }
 
 void loadIntoRuntime(void) {
