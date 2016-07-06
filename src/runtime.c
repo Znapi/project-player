@@ -21,7 +21,7 @@
 #include "types/primitives.h"
 #include "types/value.h"
 #include "types/block.h"
-#include "types/thread.h"
+#include "thread.h"
 #include "types/sprite.h"
 
 #include "runtime.h"
@@ -67,6 +67,15 @@ void initializeAskPrompt(void) {
 	(e.g. bf_repeat counts iterations).
 	This allows control structure blocks to be treated like any other block.
 **/
+
+struct TmpData {
+	union {
+		uint32 u;
+		float f;
+		void *p;
+	} d;
+	const struct Block *owner;
+};
 
 /* alloc is not quite the right term, but I couldn't think of a better one */
 static bool allocTmpData(const Block *const block) {
@@ -198,53 +207,11 @@ static void enterProcedure(const Block *const returnStack) {
 	be modified by the runtime.
 **/
 
-ThreadContext createThreadContext(const Block *const block) {
-	ThreadContext new = {
-		{0},
-
-		block,
-		{0, NULL},
-		{0},
-
-		0,
-
-		{0},
-
-		NULL,
-		{0},
-		{0},
-	};
-	dynarray_init(&new.stack, sizeof(Value));
-	dynarray_init(&new.blockStack, sizeof(struct BlockStackFrame));
-	dynarray_init(&new.tmp, sizeof(Value));
-	dynarray_init(&new.parametersStack, sizeof(Value));
-	dynarray_init(&new.nParametersStack, sizeof(uint16));
-	return new;
-}
-
-void freeThreadContext(ThreadContext *const context) {
-	dynarray_done(&context->stack);
-	dynarray_done(&context->blockStack);
-	dynarray_done(&context->tmp);
-	dynarray_done(&context->parametersStack);
-	dynarray_done(&context->nParametersStack);
-}
-
-static void resetThreadContext(ThreadContext *const context) {
-	dynarray_clear(&context->stack);
-	context->frame.level = 0;
-	context->frame.nextBlock = NULL;
-	dynarray_clear(&context->blockStack);
-	dynarray_clear(&context->tmp);
-	context->parameters = NULL;
-	dynarray_clear(&context->parametersStack);
-	dynarray_clear(&context->nParametersStack);
-}
 
 #define isThreadStopped(t) ((t).frame.nextBlock == NULL) // && (t).frame.level == 0 && dynarray_len((t).blockStack) == 0)
 
 static void startThread(ThreadLink *const link) {
-	resetThreadContext(&link->thread);
+	threadContext_reset(&link->thread);
 	link->thread.frame.nextBlock = link->thread.topBlock;
 	if(link->prev != NULL) // if the thread is already started, don't attempt to readd it to the list
 		return;
@@ -348,14 +315,14 @@ static bool startBroadcastThreads(const char *const msg, const size_t msgLen, st
 		*nullifyOnRestart = broadcastThreadsLink;
 
 	bool r = false;
-	struct ThreadList *threadList = &broadcastThreadsLink->threadList;
-	ThreadLink *threadLink;
-	for(threadList = &broadcastThreadsLink->threadList; threadList != NULL; threadList = threadList->next) {
-		threadLink = threadList->array[0];
+	struct ThreadList *threadList;
+	ThreadLink **threadLink;
+	THREADLIST_ITER(broadcastThreadsLink->threadList, threadList) {
+		threadLink = threadList->array+0;
 		for(uint16 i = 0; i < threadList->nThreads; ++i) {
-			if(&threadLink->thread == activeThread)
+			if(&(*threadLink)->thread == activeThread)
 				r = true;
-			startThread(threadLink);
+			startThread(*threadLink);
 			++threadLink;
 		}
 	}

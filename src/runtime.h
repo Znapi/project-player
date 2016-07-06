@@ -1,12 +1,7 @@
 #pragma once
 
-struct SpriteLink {
-	struct SpriteContext context;
-	UT_hash_handle hh;
-};
-
 struct BroadcastThreads {
-	struct ThreadList threadList;
+	struct ThreadList *threadList;
 	char *msg;
 	struct BroadcastThreads **nullifyOnRestart;
 	UT_hash_handle hh;
@@ -25,9 +20,6 @@ extern void initializeAskPrompt(void);
 
 extern void setStage(struct SpriteContext *const stage);
 extern void setSprites(struct SpriteLink *const sprites);
-
-extern struct ThreadContext createThreadContext(const struct Block *const block);
-extern void freeThreadContext(struct ThreadContext *const context);
 
 extern bool stepThreads(void);
 

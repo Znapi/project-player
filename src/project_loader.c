@@ -38,8 +38,8 @@
 #include "types/primitives.h"
 #include "types/value.h"
 #include "types/variables.h"
+#include "thread.h"
 #include "types/block.h"
-#include "types/thread.h"
 #include "types/sprite.h"
 
 #include "value.h"
@@ -441,7 +441,7 @@ static dynarray *threadTypes; // for each ThreadLink in threads, a corresponding
 
 static uint16 nWhenClonedThreads;
 
-static dynarray *broadcastTypes; // for each ThreadLink in threads for a WHEN_I_RECIEVE hat type, there is a pointer to a ThreadLists in broadcastsHashTable here
+static dynarray *broadcastTypes; // for each ThreadLink in threads for a WHEN_I_RECIEVE hat type, there is a pointer to a struct BroadcastThreads in broadcastsHashTable here
 
 static struct ProcedureLink *procedureHashTable;
 
@@ -460,27 +460,28 @@ static inline void addBroadcast(void) {
 		newBroadcast->msg = msg;
 		newBroadcast->nullifyOnRestart = NULL;
 		HASH_ADD_KEYPTR(hh, broadcastsHashTable, newBroadcast->msg, charBuffer->i-1, newBroadcast);
-
-		newBroadcast->threadList.array = NULL;
-		newBroadcast->threadList.prev = newBroadcast->threadList.next = NULL;
-		newBroadcast->threadList.nThreads = 1;
+		newBroadcast->threadList = NULL;
 	}
-	else if(newBroadcast->threadList.array != NULL) {
+
+	// create or get the threadList
+	if(newBroadcast->threadList != NULL) {
+		if(newBroadcast->threadList->array == NULL)
+			++newBroadcast->threadList->nThreads;
+		else {
+			struct ThreadList *threadList = malloc(sizeof(struct ThreadList));
+			threadList->array = NULL;
+			threadList->nThreads = 1;
+			threadList_push(&newBroadcast->threadList, threadList);
+		}
+	}
+	else {
 		struct ThreadList *threadList = malloc(sizeof(struct ThreadList));
-		memcpy(threadList, &newBroadcast->threadList, sizeof(struct ThreadList));
-		threadList->prev = &newBroadcast->threadList;
-		if(threadList->next != NULL)
-			threadList->next->prev = threadList;
-
-		newBroadcast->threadList.array = NULL;
-		newBroadcast->threadList.next = threadList;
-		newBroadcast->threadList.nThreads = 1;
+		threadList->array = NULL;
+		threadList->nThreads = 1;
+		threadList_push(&newBroadcast->threadList, threadList);
 	}
-	else
-		++newBroadcast->threadList.nThreads;
 
-	struct ThreadList *tl = &newBroadcast->threadList;
-	dynarray_push_back(broadcastTypes, &tl);
+	dynarray_push_back(broadcastTypes, &newBroadcast->threadList);
 }
 
 static inline Block** addProcedure(void) {
@@ -525,7 +526,7 @@ static inline void buildThreadCollections(void) {
 		case WHEN_I_RECEIVE:
 			broadcastThreadList = dynarray_next(broadcastTypes, broadcastThreadList);
 			if((*broadcastThreadList)->array == NULL) {
-				(*broadcastThreadList)->array = calloc((*broadcastThreadList)->nThreads, sizeof(ThreadLink*));
+				threadList_init(*broadcastThreadList, (*broadcastThreadList)->nThreads);
 				(*broadcastThreadList)->array[0] = thread;
 			}
 			else
@@ -533,8 +534,7 @@ static inline void buildThreadCollections(void) {
 			break;
 		case WHEN_CLONED:
 			if(sprite->whenClonedThreads.nThreads == 0) {
-				sprite->whenClonedThreads.nThreads = nWhenClonedThreads;
-				sprite->whenClonedThreads.array = calloc(nWhenClonedThreads, sizeof(ThreadLink*));
+				threadList_init(&sprite->whenClonedThreads, nWhenClonedThreads);
 				sprite->whenClonedThreads.array[0] = thread;
 			}
 			else
@@ -574,14 +574,11 @@ static void parseScripts(void) {
 			scriptPointer = addProcedure();
 		}
 		else { // TODO: use a hash table rather than repeatedly comparing strings
-			ThreadLink tmpThread = {
-				{{0}},
-				sprite,
-				NULL
-			};
-			tmpThread.thread = createThreadContext(NULL);
-			dynarray_push_back(threads, &tmpThread);			
+			dynarray_extend_back(threads);
 			ThreadLink *newThread = (ThreadLink*)dynarray_back(threads);
+			threadContext_init(&newThread->thread);
+			newThread->sprite = sprite;
+
 			scriptPointer = (Block**)&newThread->thread.topBlock;
 
 			enum HatType hatType;
@@ -597,7 +594,7 @@ static void parseScripts(void) {
 				hatType = WHEN_CLONED;
 			}
 			else { // it is not a hat
-				freeThreadContext(&tmpThread.thread);
+				threadContext_done(&newThread->thread);
 				dynarray_pop_back(threads);
 				pos -= 4; // go back to script ([xpos, ypos, [blocks...]])
 				skip(); // skip the script
@@ -668,7 +665,6 @@ static inline void initializeSpriteContext(SpriteContext *const c, const enum Sp
 	c->lists = NULL;
 
 	c->procedureHashTable = NULL;
-	c->broadcastHashTable = NULL;
 	c->whenClonedThreads.array = NULL;
 	c->whenClonedThreads.nThreads = 0;
 

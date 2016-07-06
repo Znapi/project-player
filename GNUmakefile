@@ -20,7 +20,7 @@ endif
 
 EXECUTABLES=phtg player graphics_demo
 
-PLAYER_MODS=main project_loader zip_loader runtime variables value strpool jsmn
+PLAYER_MODS=main project_loader zip_loader runtime variables value thread strpool jsmn
 player: $(addprefix obj/, $(addsuffix .o, $(PLAYER_MODS))) blockops.mphf
 	$(CC) -o $@ $(filter-out %.mphf, $^) $(LIBS) $(GLOBAL_FLAGS)
 

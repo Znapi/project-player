@@ -1,5 +1,20 @@
 #pragma once
 
+/**
+	Sprites
+
+	All of the data that makes up a project is organized into sprites. The stage and clones
+	also count as sprites, to make things simpler.
+
+	Other than the data inside the struct SpriteContext, each sprite also owns it's array of
+	ThreadLinks, variables, lists, and ThreadList of "when cloned" threads. Each sprite must
+	have a unique copy of this data, and it must be freed with the sprite.
+
+	Only the Stage and parent sprites get a unique `name` and `procedureHashTable`, and it
+	is freed with the sprite. Clones simply share the same name as their parent, and must
+	not free `name` or `procedureHashTable`.
+**/
+
 enum SpriteScope {
 	STAGE,
 	SPRITE,
@@ -17,7 +32,6 @@ struct SpriteContext {
 	struct List *lists; // a hash table of Scratch lists
 
 	struct ProcedureLink *procedureHashTable; // table of pointers to procedures to be accessed with hashes
-	struct ThreadList *broadcastHashTable; // table of pointers to arrays of broadcast threads
 	struct ThreadList whenClonedThreads; // TODO: don't need a  ThreadList for this
 
 	double xpos, ypos, direction,
@@ -29,3 +43,8 @@ struct SpriteContext {
 	} effects;
 };
 typedef struct SpriteContext SpriteContext;
+
+struct SpriteLink {
+	struct SpriteContext context;
+	UT_hash_handle hh;
+};

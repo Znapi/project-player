@@ -674,11 +674,11 @@ BF(broadcast_and_wait) {
 			return block->p.next; // don't continue; start at the top
 		else { // check each broadcast thread for whether or not it was stopped
 			struct ThreadList *threadList;
-			ThreadLink *threadLink;
-			for(threadList = &broadcastLink->threadList; threadList != NULL; threadList = threadList->next) { // TODO: THREADLIST_ITER()
-				threadLink = threadList->array[0];
+			ThreadLink **threadLink;
+			THREADLIST_ITER(broadcastLink->threadList, threadList) {
+				threadLink = threadList->array+0;
 				for(uint16 i = 0; i < threadList->nThreads; ++i) {
-					if(!isThreadStopped(threadLink->thread)) {
+					if(!isThreadStopped((*threadLink)->thread)) {
 						doYield = true;
 						return block;
 					}
