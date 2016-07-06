@@ -359,7 +359,7 @@ BF(stop_scripts) {
 }
 
 BF(clone) {
-	/*SpriteContext *clone = malloc(sizeof(SpriteContext));
+	SpriteContext *clone = malloc(sizeof(SpriteContext));
 	memcpy(clone, activeSprite, sizeof(SpriteContext));
 	clone->scope = CLONE;
 
@@ -367,7 +367,7 @@ BF(clone) {
 	clone->nThreads = activeSprite->nThreads;
 	for(uint16 i = 0; i < clone->nThreads; ++i) {
 		ThreadLink *link = clone->threads+i;
-		link->thread = createThreadContext(activeSprite->threads[i].thread.topBlock);
+		threadContext_init(&link->thread, activeSprite->threads[i].thread.topBlock);
 		link->sprite = clone;
 		link->prev = link->next = NULL;
 	}
@@ -375,29 +375,31 @@ BF(clone) {
 	clone->variables = copyVariables((const Variable *const *const)&activeSprite->variables); // not sure why the typecast is needed to suppress warinings
 	clone->lists = copyLists((const List *const *const)&activeSprite->lists);
 
-	clone->whenClonedThreads = malloc(clone->nWhenClonedThreads*sizeof(ThreadLink*));
-	for(uint16 i = 0; i < clone->nWhenClonedThreads; ++i)
-		clone->whenClonedThreads[i] = (long)(activeSprite->whenClonedThreads[i] - activeSprite->threads) + clone->threads; // simply offset the pointers, so that they are based on the location of the clone's threads rather than the old sprite's threads
+	threadList_copyArray(&clone->whenClonedThreads, &activeSprite->whenClonedThreads, clone->threads, activeSprite->threads);
+	clone->broadcastThreadLists = malloc(clone->nBroadcastThreadLists*sizeof(ThreadList*));
+	for(uint16 i = 0; i < clone->nBroadcastThreadLists; ++i) {
+		clone->broadcastThreadLists[i] = threadList_copy(activeSprite->broadcastThreadLists[i], clone->threads, activeSprite->threads);
+	}
 
-		startThreadsInArray(clone->whenClonedThreads, clone->nWhenClonedThreads);*/
+	startThreadsInList(&clone->whenClonedThreads);
 	return block->p.next;
 }
 
 BF(destroy_clone) {
-	/*stopThreadsForSprite(true);
-
-	//free((void*)activeSprite->name);
+	stopThreadsForSprite(true);
 
 	for(uint16 i = 0; i < activeSprite->nThreads; ++i)
-		freeThreadContext(&activeSprite->threads[i].thread);
+		threadContext_done(&activeSprite->threads[i].thread);
 	free(activeSprite->threads);
 
 	freeVariables(&activeSprite->variables);
 	freeLists(&activeSprite->lists);
 
-	free(activeSprite->whenClonedThreads);
+	threadList_done(&activeSprite->whenClonedThreads);
+	for(uint16 i = 0; i < activeSprite->nBroadcastThreadLists; ++i)
+		threadList_free(activeSprite->broadcastThreadLists[i]);
 
-	free(activeSprite);*/
+	free(activeSprite);
 	return block->p.next;
 }
 
@@ -878,8 +880,6 @@ BF(y_get) {
 	reportSlot->data.floating = activeSprite->ypos;
 	return NULL;
 }
-
-
 
 /* Looks */
 

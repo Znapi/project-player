@@ -234,6 +234,10 @@ static void startThreadsInArray(ThreadLink *const *const threads, uint16 nThread
 	}
 }
 
+static void startThreadsInList(ThreadList *const list) {
+	startThreadsInArray(list->array, list->nThreads);
+}
+
 static ThreadLink* stopThread(ThreadLink *const stopped) {
 	ThreadLink *next = stopped->next;
 	if(next == NULL) {

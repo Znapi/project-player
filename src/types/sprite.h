@@ -33,6 +33,8 @@ struct SpriteContext {
 
 	struct ProcedureLink *procedureHashTable; // table of pointers to procedures to be accessed with hashes
 	struct ThreadList whenClonedThreads; // TODO: don't need a  ThreadList for this
+	struct ThreadList **broadcastThreadLists; // array of pointers to ThreadLists for broadcast threads
+	uint16 nBroadcastThreadLists;
 
 	double xpos, ypos, direction,
 		size, volume, tempo;

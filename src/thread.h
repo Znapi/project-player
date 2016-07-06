@@ -2,7 +2,7 @@
 
 #include "types/thread.h"
 
-extern void threadContext_init(ThreadContext *const context);
+extern void threadContext_init(ThreadContext *const context, const struct Block *const topBlock);
 extern void threadContext_done(ThreadContext *const context);
 extern void threadContext_reset(ThreadContext *const context);
 
@@ -11,7 +11,6 @@ extern ThreadList* threadList_new(const uint16 nThreads);
 static inline void threadList_done(ThreadList *const threadList) {
 	free(threadList->array);
 }
-
 static inline void threadList_free(ThreadList *const threadList) {
 	threadList_done(threadList);
 	free(threadList);
@@ -19,6 +18,9 @@ static inline void threadList_free(ThreadList *const threadList) {
 
 extern void threadList_push(ThreadList **const head, ThreadList *const element);
 extern void threadList_remove(ThreadList **const head, ThreadList *const element);
+
+extern void threadList_copyArray(ThreadList *const newList, const ThreadList *const oldList, ThreadLink *const newThreads, const ThreadLink *const oldThreads);
+extern ThreadList* threadList_copy(ThreadList *const oldList, ThreadLink *const newThreads, const ThreadLink *const oldThreads);
 
 #define THREADLINK_FOR_EACH(/* ThreadLink *threadLink, ThreadLink *next, ThreadLink stubLink */ threadLink, stubLink) \
 	for((threadLink) = (stubLink).next; (threadLink) != NULL; (threadLink) = (threadLink)->next)

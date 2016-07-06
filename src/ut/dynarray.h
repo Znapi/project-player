@@ -189,8 +189,12 @@ static inline void dynarray_renew(dynarray *a, size_t u) {
 	 `f` is a pointer that this macro points to the new allocation.
 	 `a` is a pointer to the dynarray and becomes invalid. */
 static inline void dynarray_finalize(dynarray *a, void **f) {
-	*f = realloc(a->d, a->sz*a->i);
-	if(*f == NULL) oom();
+	if(a->i == 0)
+		*f = NULL;
+	else {
+		*f = realloc(a->d, a->sz*a->i);
+		if(*f == NULL) oom();
+	}
 	free(a);
 }
 
@@ -198,8 +202,14 @@ static inline void dynarray_finalize(dynarray *a, void **f) {
 	 `f` is a pointer that this macro points to the new allocation.
 	 `a` is a pointer to the dynarray and will still be perfectly valid. */
 static inline void dynarray_extract(dynarray *a, void **f) {
-	*f = malloc(a->sz*a->i);
-	if(*f == NULL) oom();
+	if(a->i == 0) {
+		*f = NULL;
+		return;
+	}
+	else {
+		*f = malloc(a->sz*a->i);
+		if(*f == NULL) oom();
+	}
 	memcpy(*f, a->d, a->sz*a->i);
 }
 

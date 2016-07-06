@@ -441,7 +441,8 @@ static dynarray *threadTypes; // for each ThreadLink in threads, a corresponding
 
 static uint16 nWhenClonedThreads;
 
-static dynarray *broadcastTypes; // for each ThreadLink in threads for a WHEN_I_RECIEVE hat type, there is a pointer to a struct BroadcastThreads in broadcastsHashTable here
+static dynarray *broadcastTypes; // for each ThreadLink in threads for a WHEN_I_RECIEVE hat type, there is a pointer to a ThreadList in here
+static dynarray *broadcastThreadLists; // a pointer to each ThreadList for broadcast threads is stored in here
 
 static struct ProcedureLink *procedureHashTable;
 
@@ -472,6 +473,7 @@ static inline void addBroadcast(void) {
 			threadList->array = NULL;
 			threadList->nThreads = 1;
 			threadList_push(&newBroadcast->threadList, threadList);
+			dynarray_push_back(broadcastThreadLists, &threadList);
 		}
 	}
 	else {
@@ -479,6 +481,7 @@ static inline void addBroadcast(void) {
 		threadList->array = NULL;
 		threadList->nThreads = 1;
 		threadList_push(&newBroadcast->threadList, threadList);
+		dynarray_push_back(broadcastThreadLists, &threadList);
 	}
 
 	dynarray_push_back(broadcastTypes, &newBroadcast->threadList);
@@ -544,6 +547,8 @@ static inline void buildThreadCollections(void) {
 		++thread;
 	}
 #undef PUSH_ONTO_THREADLIST
+
+	dynarray_extract(broadcastThreadLists, (void**)&sprite->broadcastThreadLists);
 }
 
 static void parseScripts(void) {
@@ -552,6 +557,7 @@ static void parseScripts(void) {
 	dynarray_clear(threadTypes);
 	nWhenClonedThreads = 0;
 	dynarray_clear(broadcastTypes);
+	dynarray_clear(broadcastThreadLists);
 	procedureHashTable = NULL;
 
 	// begin parsing
@@ -576,7 +582,7 @@ static void parseScripts(void) {
 		else { // TODO: use a hash table rather than repeatedly comparing strings
 			dynarray_extend_back(threads);
 			ThreadLink *newThread = (ThreadLink*)dynarray_back(threads);
-			threadContext_init(&newThread->thread);
+			threadContext_init(&newThread->thread, NULL);
 			newThread->sprite = sprite;
 
 			scriptPointer = (Block**)&newThread->thread.topBlock;
@@ -667,6 +673,7 @@ static inline void initializeSpriteContext(SpriteContext *const c, const enum Sp
 	c->procedureHashTable = NULL;
 	c->whenClonedThreads.array = NULL;
 	c->whenClonedThreads.nThreads = 0;
+	c->broadcastThreadLists = NULL;
 
 	c->xpos = c->ypos = 0.0;
 	c->direction = 90.0;
@@ -702,9 +709,9 @@ void parseJSON(void) {
 	dynarray_new(threads, sizeof(ThreadLink));
 	dynarray_new(threadTypes, sizeof(enum HatType));
 	dynarray_new(broadcastTypes, sizeof(struct ThreadList*));
+	dynarray_new(broadcastThreadLists, sizeof(struct ThreadList*));
 
 	dynarray_new(sprites, sizeof(struct SpriteLink*));
-	dynarray_ensure_size(sprites, 64); // TODO: don't leave sprites in dynamic data structure
 
 	// begin parsing
 	sprite = newSprite(STAGE);
@@ -752,6 +759,7 @@ void parseJSON(void) {
 	dynarray_free(threads);
 	dynarray_free(threadTypes);
 	dynarray_free(broadcastTypes);
+	dynarray_free(broadcastThreadLists);
 	procedureHashTable = NULL;
 }
 

@@ -12,7 +12,7 @@ struct BlockStackFrame {
 struct ThreadContext {
 	dynarray stack; // thread's stack / argument pool
 
-	const struct Block *const topBlock;
+	const struct Block *topBlock;
 	struct BlockStackFrame frame;
 	dynarray blockStack; // dynarray of BlockStackFrames
 

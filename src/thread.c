@@ -20,7 +20,8 @@
 
 #include "thread.h"
 
-void threadContext_init(ThreadContext *const context) {
+void threadContext_init(ThreadContext *const context, const struct Block *const topBlock) {
+	context->topBlock = topBlock;
 	dynarray_init(&context->stack, sizeof(Value));
 	dynarray_init(&context->blockStack, sizeof(struct BlockStackFrame));
 	dynarray_init(&context->tmp, sizeof(Value));
@@ -78,4 +79,17 @@ void threadList_remove(ThreadList **const head, ThreadList *const element) {
 		element->prev->next = element->next;
 	if(element->next != NULL)
 		element->next->prev = element->prev;
+}
+
+void threadList_copyArray(ThreadList *const newList, const ThreadList *const oldList, ThreadLink *const newThreads, const ThreadLink *const oldThreads) {
+	newList->array = malloc(newList->nThreads*sizeof(ThreadLink*));
+	for(uint16 i = 0; i < newList->nThreads; ++i) {
+		newList->array[i] = newThreads + (long)(oldList->array[i] - oldThreads);
+	}
+}
+
+ThreadList* threadList_copy(ThreadList *const oldList, ThreadLink *const newThreads, const ThreadLink *const oldThreads) {
+	ThreadList *new = malloc(sizeof(ThreadList));
+	threadList_copyArray(new, oldList, newThreads, oldThreads);
+	return new;
 }
