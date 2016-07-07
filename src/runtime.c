@@ -255,7 +255,13 @@ static void stopAllThreads(void) {
 		*next;
 	while(current != NULL) {
 		next = current->next;
-		current->next = current->prev =  NULL;
+		if(&current->thread == activeThread) {
+			runningThreads.next = current;
+			current->prev = &runningThreads;
+		}
+		else
+			current->prev =  NULL;
+		current->next = NULL;
 		current = next;
 	}
 }
@@ -456,14 +462,10 @@ bool stepThreads(void) {
 
 			// step the thread
 			if(stepActiveThread()) { // if the thread should be killed
-				if(current->prev == NULL) // if the chain has already been broken, meaning all threads were stopped
-					return false;
-				else {
-					current = stopThread(current);
-					if(destroy != NULL) {
-						free(destroy);
-						destroy = NULL;
-					}
+				current = stopThread(current);
+				if(destroy != NULL) {
+					free(destroy);
+					destroy = NULL;
 				}
 
 				if(runningThreads.next == NULL)
