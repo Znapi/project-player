@@ -310,7 +310,7 @@ BF(do_wait_until) {
 
 BF(do_repeat) {
 	if(allocTmpData(block))
-		usetTmpData((uint16)toInteger(arg+0));
+		usetTmpData((uint32)toInteger(arg+0));
 
 	if(ugetTmpData() != 0) {
 		doYield = true;
@@ -528,7 +528,7 @@ BF(list_delete) {
 	}
 	double i;
 	if(tryToFloating(arg+0, &i))
-		listDelete(list, (uint32)i);
+		listDelete(list, (uint32)i-1);
 	return block->p.next;
 }
 
@@ -548,7 +548,7 @@ BF(list_insert) {
 	}
 	double i;
 	if(tryToFloating(arg+0, &i))
-		listInsert(list, arg+2, (uint32)i);
+		listInsert(list, arg+2, (uint32)i-1);
 	return block->p.next;
 }
 
@@ -568,7 +568,7 @@ BF(list_setElement) {
 	}
 	double i;
 	if(tryToFloating(arg+0, &i))
-		listSet(list, arg+2, (uint32)i);
+		listSet(list, arg+2, (uint32)i-1);
 	return block->p.next;
 }
 
@@ -588,7 +588,7 @@ BF(list_getElement) {
 	}
 	double i;
 	if(tryToFloating(arg+0, &i))
-		*reportSlot = listGet(list, (uint32)i);
+		*reportSlot = listGet(list, (uint32)i-1);
 	return block->p.next;
 }
 

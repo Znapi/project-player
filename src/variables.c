@@ -24,10 +24,12 @@
 **/
 
 #include <stdio.h>
+
+#include "types/primitives.h"
+
 #include "ut/uthash.h"
 #include "ut/utarray.h"
 
-#include "types/primitives.h"
 #include "types/value.h"
 #include "types/variables.h"
 

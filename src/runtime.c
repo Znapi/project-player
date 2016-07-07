@@ -14,11 +14,12 @@
 #include <time.h>
 #include <cmph.h>
 
+#include "types/primitives.h"
+
 #include "ut/uthash.h"
 #include "ut/utarray.h"
 #include "ut/dynarray.h"
 
-#include "types/primitives.h"
 #include "types/value.h"
 #include "types/block.h"
 #include "thread.h"

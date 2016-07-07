@@ -20,10 +20,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <cmph.h>
-#include "ut/dynarray.h"
 #include "ut/uthash.h"
 
 #include "types/primitives.h"
+#include "ut/dynarray.h"
+
 #include "types/value.h"
 #include "types/block.h"
 #include "types/thread.h"

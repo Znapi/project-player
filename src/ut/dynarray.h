@@ -53,7 +53,7 @@
 #endif
 
 typedef struct dynarray {
-	unsigned i,n; // i: index of next available slot, n: num slots
+	uint32 i,n; // i: index of next available slot, n: num slots
 	size_t sz; // size of each element/slot
 	char *d; // n slots of size sz
 } dynarray;

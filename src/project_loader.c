@@ -31,11 +31,12 @@
 #include <cmph.h>
 #include "ut/uthash.h"
 
+#include "types/primitives.h"
+
 #include "jsmn/jsmn.h"
 #include "ut/utarray.h"
 #include "ut/dynarray.h"
 
-#include "types/primitives.h"
 #include "types/value.h"
 #include "types/variables.h"
 #include "thread.h"
@@ -213,7 +214,8 @@ static void parseVariables(void) {
 	 and it will be left pointing to the token just after the array. */
 static void parseLists(void) {
 	++pos; // advance to array
-	uint16 propertiesToGo, i = 0, nListsToGo = TOKC.size; // number of list objects to parse
+	uint16 i = 0, nListsToGo = TOKC.size; // number of list objects to parse
+	uint32 propertiesToGo;
 
 	List *listBuffer = malloc(nListsToGo*sizeof(List)); // TODO: free
 	List *lists = NULL;
@@ -234,8 +236,10 @@ static void parseLists(void) {
 				valueToken = tokens + ++pos;
 				pos += TOKC.size;
 			}
-			else
-				++pos; // advance to value
+			else {
+				skip();
+				--pos;
+			}
 		} while(--propertiesToGo != 0);
 		list_init(&lists, listBuffer+i, charBuffer->d, charBuffer->i-1);
 		for(propertiesToGo = valueToken->size; propertiesToGo != 0; --propertiesToGo) {
@@ -603,7 +607,7 @@ static void parseScripts(void) {
 			else { // it is not a hat
 				threadContext_done(&newThread->thread);
 				dynarray_pop_back(threads);
-				pos -= 4; // go back to script ([xpos, ypos, [blocks...]])
+				pos -= 5; // go back to script ([xpos, ypos, [blocks...]])
 				skip(); // skip the script
 				continue;
 			}

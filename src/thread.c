@@ -13,9 +13,10 @@
 	ThreadLink. Hence, this module does not malloc or free ThreadContexts.
 **/
 
+#include "types/primitives.h"
+
 #include "ut/dynarray.h"
 
-#include "types/primitives.h"
 #include "types/value.h"
 
 #include "thread.h"
