@@ -17,6 +17,8 @@ static inline void threadList_free(ThreadList *const threadList) {
 }
 
 extern void threadList_push(ThreadList **const head, ThreadList *const element);
+extern void threadList_insert(ThreadList *const existingElement, ThreadList *const newElement);
+/* pass NULL for `head` if you don't know what the head is, but you do know that `element` is not the head */
 extern void threadList_remove(ThreadList **const head, ThreadList *const element);
 
 extern void threadList_copyArray(ThreadList *const newList, const ThreadList *const oldList, ThreadLink *const newThreads, const ThreadLink *const oldThreads);

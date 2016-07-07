@@ -350,7 +350,7 @@ BF(stop_scripts) {
 	toString(arg+0, &str);
 	switch(str[0]) {
 	case 'o': // other scripts in sprite
-		stopThreadsForSprite(false);
+		stopThreadsForSprite();
 		return block->p.next;
 	case 'a': // all scripts
 		stopAllThreads();
@@ -359,47 +359,56 @@ BF(stop_scripts) {
 }
 
 BF(clone) {
-	SpriteContext *clone = malloc(sizeof(SpriteContext));
-	memcpy(clone, activeSprite, sizeof(SpriteContext));
-	clone->scope = CLONE;
+	if(activeSprite->scope != STAGE) {
+		SpriteContext *clone = malloc(sizeof(SpriteContext));
+		memcpy(clone, activeSprite, sizeof(SpriteContext));
+		clone->scope = CLONE;
 
-	clone->threads = malloc(activeSprite->nThreads*sizeof(ThreadLink));
-	clone->nThreads = activeSprite->nThreads;
-	for(uint16 i = 0; i < clone->nThreads; ++i) {
-		ThreadLink *link = clone->threads+i;
-		threadContext_init(&link->thread, activeSprite->threads[i].thread.topBlock);
-		link->sprite = clone;
-		link->prev = link->next = NULL;
+		clone->threads = malloc(activeSprite->nThreads*sizeof(ThreadLink)); // don't check for 0 threads because it must have at least one to even be creating clones
+		clone->nThreads = activeSprite->nThreads;
+		for(uint16 i = 0; i < clone->nThreads; ++i) {
+			ThreadLink *link = clone->threads+i;
+			threadContext_init(&link->thread, activeSprite->threads[i].thread.topBlock);
+			link->sprite = clone;
+			link->prev = link->next = NULL;
+		}
+
+		clone->variables = copyVariables((const Variable *const *const)&activeSprite->variables); // not sure why the typecast is needed to suppress warinings
+		clone->lists = copyLists((const List *const *const)&activeSprite->lists);
+
+		threadList_copyArray(&clone->whenClonedThreads, &activeSprite->whenClonedThreads, clone->threads, activeSprite->threads);
+		if(clone->nBroadcastThreadLists != 0) {
+			clone->broadcastThreadLists = malloc(clone->nBroadcastThreadLists*sizeof(ThreadList*));
+			for(uint16 i = 0; i < clone->nBroadcastThreadLists; ++i) {
+				clone->broadcastThreadLists[i] = threadList_copy(activeSprite->broadcastThreadLists[i], clone->threads, activeSprite->threads);
+				threadList_insert(activeSprite->broadcastThreadLists[i], clone->broadcastThreadLists[i]);
+			}
+		}
+
+		startThreadsInList(&clone->whenClonedThreads);
 	}
-
-	clone->variables = copyVariables((const Variable *const *const)&activeSprite->variables); // not sure why the typecast is needed to suppress warinings
-	clone->lists = copyLists((const List *const *const)&activeSprite->lists);
-
-	threadList_copyArray(&clone->whenClonedThreads, &activeSprite->whenClonedThreads, clone->threads, activeSprite->threads);
-	clone->broadcastThreadLists = malloc(clone->nBroadcastThreadLists*sizeof(ThreadList*));
-	for(uint16 i = 0; i < clone->nBroadcastThreadLists; ++i) {
-		clone->broadcastThreadLists[i] = threadList_copy(activeSprite->broadcastThreadLists[i], clone->threads, activeSprite->threads);
-	}
-
-	startThreadsInList(&clone->whenClonedThreads);
 	return block->p.next;
 }
 
 BF(destroy_clone) {
-	stopThreadsForSprite(true);
+	if(activeSprite->scope == CLONE) {
+		stopThreadsForSprite();
 
-	for(uint16 i = 0; i < activeSprite->nThreads; ++i)
-		threadContext_done(&activeSprite->threads[i].thread);
-	free(activeSprite->threads);
+		for(uint16 i = 0; i < activeSprite->nThreads; ++i)
+			threadContext_done(&activeSprite->threads[i].thread);
+		destroy = activeSprite->threads;
 
-	freeVariables(&activeSprite->variables);
-	freeLists(&activeSprite->lists);
+		freeVariables(&activeSprite->variables);
+		freeLists(&activeSprite->lists);
 
-	threadList_done(&activeSprite->whenClonedThreads);
-	for(uint16 i = 0; i < activeSprite->nBroadcastThreadLists; ++i)
-		threadList_free(activeSprite->broadcastThreadLists[i]);
+		threadList_done(&activeSprite->whenClonedThreads);
+		for(uint16 i = 0; i < activeSprite->nBroadcastThreadLists; ++i) {
+			threadList_remove(NULL, activeSprite->broadcastThreadLists[i]);
+			threadList_free(activeSprite->broadcastThreadLists[i]);
+		}
 
-	free(activeSprite);
+		free(activeSprite);
+	}
 	return block->p.next;
 }
 

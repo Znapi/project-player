@@ -381,7 +381,7 @@ static void parseStack(Block **const blocks, Value **const values, uint16 nStack
 
 			switch(parseBlock(&block, values, 1)) {
 
-			case BLOCK_TYPE_S: // 1 substack: 1 following (normal stack block)
+			case BLOCK_TYPE_S: case BLOCK_TYPE_F: // 1 substack: 1 following (normal stack block)
 				link = &(block->p.next);
 				++block;
 				++pos;
@@ -548,6 +548,7 @@ static inline void buildThreadCollections(void) {
 	}
 #undef PUSH_ONTO_THREADLIST
 
+	sprite->nBroadcastThreadLists = dynarray_len(broadcastThreadLists);
 	dynarray_extract(broadcastThreadLists, (void**)&sprite->broadcastThreadLists);
 }
 

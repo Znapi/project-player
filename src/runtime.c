@@ -32,6 +32,7 @@
 #include "value.h"
 
 static ThreadContext *activeThread;
+static void *destroy = NULL; // used when the last block to run (actually only bf_destroy_clone) wants to free the memory holding the active thread
 static SpriteContext *activeSprite;
 static dynarray *stack;
 
@@ -240,13 +241,11 @@ static void startThreadsInList(ThreadList *const list) {
 
 static ThreadLink* stopThread(ThreadLink *const stopped) {
 	ThreadLink *next = stopped->next;
-	if(next == NULL) {
-		stopped->prev->next = NULL;
-	}
-	else {
+	if(stopped->prev != NULL)
 		stopped->prev->next = next;
+	if(next != NULL)
 		next->prev = stopped->prev;
-	}
+
 	stopped->prev = stopped->next = NULL;
 	return next;
 }
@@ -261,14 +260,13 @@ static void stopAllThreads(void) {
 	}
 }
 
-static void stopThreadsForSprite(const bool stopCurrentThread) {
-	ThreadLink *current = &runningThreads;
+static void stopThreadsForSprite(void) {
+	ThreadLink *current = runningThreads.next;
 	while(current != NULL) {
-		current = current->next;
-		if(current->sprite == activeSprite) {
-			if(stopCurrentThread || &current->thread != activeThread)
-				stopThread(current);
-		}
+		if(current->sprite == activeSprite && &current->thread != activeThread)
+			current = stopThread(current);
+		else
+			current = current->next;
 	}
 }
 
@@ -462,10 +460,14 @@ bool stepThreads(void) {
 					return false;
 				else {
 					current = stopThread(current);
-					if(runningThreads.next == NULL) {
-						return false;
+					if(destroy != NULL) {
+						free(destroy);
+						destroy = NULL;
 					}
 				}
+
+				if(runningThreads.next == NULL)
+					return false;
 			}
 			else {
 				current = current->next; // advance to the next context

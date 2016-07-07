@@ -72,24 +72,44 @@ void threadList_push(ThreadList **const head, ThreadList *const element) {
 	}
 }
 
+void threadList_insert(ThreadList *const existingElement, ThreadList *const newElement) {
+	if(existingElement->next != NULL) {
+		existingElement->next->prev = newElement;
+	}
+	newElement->next = existingElement->next;
+
+	newElement->prev = existingElement;
+	existingElement->next = newElement;
+}
+
 void threadList_remove(ThreadList **const head, ThreadList *const element) {
-	if(*head == element)
-		*head = element->next;
-	else if(element->prev != NULL)
+	if(head != NULL) {
+		if(*head == element) {
+			*head = element->next;
+			if(element->next != NULL) // TODO: fix control flow
+				element->next->prev = NULL;
+			return;
+		}
+	}
+
+	if(element->prev != NULL)
 		element->prev->next = element->next;
 	if(element->next != NULL)
 		element->next->prev = element->prev;
 }
 
 void threadList_copyArray(ThreadList *const newList, const ThreadList *const oldList, ThreadLink *const newThreads, const ThreadLink *const oldThreads) {
-	newList->array = malloc(newList->nThreads*sizeof(ThreadLink*));
-	for(uint16 i = 0; i < newList->nThreads; ++i) {
-		newList->array[i] = newThreads + (long)(oldList->array[i] - oldThreads);
+	if(newList->nThreads != 0) {
+		newList->array = malloc(newList->nThreads*sizeof(ThreadLink*));
+		for(uint16 i = 0; i < newList->nThreads; ++i) {
+			newList->array[i] = newThreads + (long)(oldList->array[i] - oldThreads);
+		}
 	}
 }
 
 ThreadList* threadList_copy(ThreadList *const oldList, ThreadLink *const newThreads, const ThreadLink *const oldThreads) {
 	ThreadList *new = malloc(sizeof(ThreadList));
+	new->nThreads = oldList->nThreads;
 	threadList_copyArray(new, oldList, newThreads, oldThreads);
 	return new;
 }
