@@ -511,7 +511,7 @@ BF(list_delete) {
 	UT_array *list;
 	getOrCreateList(name, nameLen, list);
 	if(arg[0].type == STRING) {
-		switch(arg[1].data.string[0]) {
+		switch(arg[0].data.string[0]) {
 		case '1': listDeleteFirst(list); return block->p.next;
 		case 'l': listDeleteLast(list); return block->p.next;
 		case 'a': listDeleteAll(list); return block->p.next;
@@ -529,7 +529,7 @@ BF(list_insert) {
 	UT_array *list;
 	getOrCreateList(name, nameLen, list);
 	if(arg[0].type == STRING) {
-		switch(arg[1].data.string[0]) {
+		switch(arg[0].data.string[0]) {
 		case '1': listPrepend(list, arg+2); return block->p.next;
 		case 'l': listAppend(list, arg+2); return block->p.next;
 		case 'r':
@@ -549,7 +549,7 @@ BF(list_setElement) {
 	UT_array *list;
 	getOrCreateList(name, nameLen, list);
 	if(arg[0].type == STRING) {
-		switch(arg[1].data.string[0]) {
+		switch(arg[0].data.string[0]) {
 		case '1': listSetFirst(list, arg+2); return block->p.next;
 		case 'l': listSetLast(list, arg+2); return block->p.next;
 		case 'r':
@@ -569,7 +569,7 @@ BF(list_getElement) {
 	UT_array *list;
 	getOrCreateList(name, nameLen, list);
 	if(arg[0].type == STRING) {
-		switch(arg[1].data.string[0]) {
+		switch(arg[0].data.string[0]) {
 		case '1': *reportSlot = listGetFirst(list); return block->p.next;
 		case 'l': *reportSlot = listGetLast(list); return block->p.next;
 		case 'r':
