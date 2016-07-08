@@ -161,7 +161,7 @@ const struct BlockSpec specs[] = {
 	{"touching:", "bf_noop", b},
 	{"touchingColor:", "bf_noop", b},
 	{"color:sees:", "bf_noop", b},
-	{"distanceTo:", "bf_noop", r},
+	{"distanceTo:", "bf_distanceToSprite", r},
 
 	{"doAsk", "bf_prompt", s},
 	{"answer", "bf_prompt_get", r},

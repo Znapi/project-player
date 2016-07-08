@@ -732,6 +732,19 @@ BF(timer_reset) {
 	return block->p.next;
 }
 
+BF(distanceToSprite) { // TODO: distance to _mouse_
+	char *spriteName;
+	const size_t nameLen = toString(arg+0, &spriteName);
+	struct SpriteLink *target;
+	HASH_FIND(hh, sprites, spriteName, nameLen, target);
+	if(target == NULL)
+		reportSlot->data.floating = 0.0;
+	else
+		reportSlot->data.floating = hypot(activeSprite->xpos - target->context.xpos, activeSprite->ypos - target->context.ypos);
+	reportSlot->type = FLOATING;
+	return NULL;
+}
+
 BF(username_get) { // just default to a null string
 	reportSlot->type = STRING;
 	reportSlot->data.string = strpool_alloc(1);
