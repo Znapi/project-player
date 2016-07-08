@@ -39,12 +39,14 @@ static dynarray *stack;
 
 static ThreadLink runningThreads = {{{0}}, NULL, NULL, NULL}; // the first item of the list is a stub that points to the first real item
 
+static clock_t currentTime;
 static clock_t dtime;
 static const clock_t workTime = (clock_t).75f * 1000 / 30; // work only for 75% of the alloted frame time. taken from Flash version.
 static bool doRedraw, doYield;
 
 static SpriteContext *stage;
 static struct SpriteLink *sprites; // hash table of sprites
+static clock_t lastTimerReset;
 
 void setStage(SpriteContext *const stageContext) {
 	stage = stageContext;
@@ -290,6 +292,7 @@ void freeGreenFlagThreads(void) {
 }
 
 void restartGreenFlagThreads(void) {
+	lastTimerReset = clock();
 	startThreadsInArray(greenFlagThreads, nGreenFlagThreads);
 }
 
@@ -424,12 +427,11 @@ static const Block* interpret(const Block *block, Value *const reportSlot, const
 /* Steps the active thread until a yield point is reached or there are no more blocks.
    Returns a boolean to tell whether or not the thread should be stopped. */
 static bool stepActiveThread(void) {
-	clock_t newTime;
 	doYield = false;
 	while(!doYield) {
-		newTime = clock();
-		dtime = (float)newTime - activeThread->lastTime;
-		activeThread->lastTime = newTime;
+		currentTime = clock();
+		dtime = currentTime - activeThread->lastTime;
+		activeThread->lastTime = currentTime;
 
 		activeThread->frame.nextBlock = interpret(activeThread->frame.nextBlock, NULL, 1);
 		strpool_empty(); // free strings allocated to during evaluation
@@ -449,8 +451,8 @@ static bool stepActiveThread(void) {
 bool stepThreads(void) {
 	doRedraw = false;
 	ThreadLink *current;
-	clock_t startTime = clock(),
-		currentTime = startTime;
+	clock_t startTime = clock();
+	currentTime = startTime;
 	do {
 		current = runningThreads.next;
 

@@ -721,6 +721,17 @@ BF(prompt_get) {
 	return NULL;
 }
 
+BF(timer_get) {
+	reportSlot->type = FLOATING;
+	reportSlot->data.floating = (double)(currentTime - lastTimerReset) / (double)CLOCKS_PER_SEC;
+	return NULL;
+}
+
+BF(timer_reset) {
+	lastTimerReset = currentTime;
+	return block->p.next;
+}
+
 BF(username_get) { // just default to a null string
 	reportSlot->type = STRING;
 	reportSlot->data.string = strpool_alloc(1);

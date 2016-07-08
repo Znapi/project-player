@@ -1,4 +1,4 @@
-#define PROJECT_PATH "test.sb2"
+#define PROJECT_PATH "sort.sb2"
 
 /**
 	A Scratch project player written in C

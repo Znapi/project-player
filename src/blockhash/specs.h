@@ -177,8 +177,8 @@ const struct BlockSpec specs[] = {
 	{"setVideoState", "bf_noop", s},
 	{"setVideoTransparency", "bf_noop", s},
 
-	{"timer", "bf_noop", r},
-	{"timerReset", "bf_noop", s},
+	{"timer", "bf_timer_get", r},
+	{"timerReset", "bf_timer_reset", s},
 
 	{"getAttribute:of:", "bf_noop", r},
 
