@@ -36,8 +36,7 @@ struct SpriteContext {
 	struct ThreadList **broadcastThreadLists; // array of pointers to ThreadLists for broadcast threads
 	uint16 nBroadcastThreadLists;
 
-	double xpos, ypos, direction,
-		size, volume, tempo;
+	double xpos, ypos, direction, size;
 	struct {
 		double color, brightness, ghost,
 			pixelate, mosaic,

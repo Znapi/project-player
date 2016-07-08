@@ -743,45 +743,45 @@ BF(username_get) { // just default to a null string
 
 BF(volume_change) {
 	const double diff = toFloating(arg+0);
-	activeSprite->volume += diff;
-	if(activeSprite->volume > 100.0f) activeSprite->volume = 100.0f;
-	else if(activeSprite->volume < 0.0f) activeSprite->volume = 0.0f;
+	volume += diff;
+	if(volume > 100.0f) volume = 100.0f;
+	else if(volume < 0.0f) volume = 0.0f;
 	return block->p.next;
 }
 
 BF(volume_set) {
 	const double newValue = toFloating(arg+0);
-	if(newValue > 100.0f) activeSprite->volume = 100.0f;
-	else if(newValue < 0.0f) activeSprite->volume = 0.0f;
-	else activeSprite->volume = newValue;
+	if(newValue > 100.0f) volume = 100.0f;
+	else if(newValue < 0.0f) volume = 0.0f;
+	else volume = newValue;
 	return block->p.next;
 }
 
 BF(volume_get) {
 	reportSlot->type = FLOATING;
-	reportSlot->data.floating = activeSprite->volume;
+	reportSlot->data.floating = volume;
 	return block->p.next;
 }
 
 BF(tempo_change) {
 	const double diff = toFloating(arg+0);
-	activeSprite->tempo += diff;
-	if(activeSprite->tempo > 500.0f) activeSprite->tempo = 500.0f;
-	else if(activeSprite->tempo < 20.0f) activeSprite->tempo = 20.0f;
+	tempo += diff;
+	if(tempo > 500.0f) tempo = 500.0f;
+	else if(tempo < 20.0f) tempo = 20.0f;
 	return block->p.next;
 }
 
 BF(tempo_set) {
 	const double newValue = toFloating(arg+0);
-	if(newValue > 500.0f) activeSprite->tempo = 500.0f;
-	else if(newValue < 20.0f) activeSprite->tempo = 20.0f;
-	else activeSprite->tempo = newValue;
+	if(newValue > 500.0f) tempo = 500.0f;
+	else if(newValue < 20.0f) tempo = 20.0f;
+	else tempo = newValue;
 	return block->p.next;
 }
 
 BF(tempo_get) {
 	reportSlot->type = FLOATING;
-	reportSlot->data.floating = activeSprite->tempo;
+	reportSlot->data.floating = tempo;
 	return block->p.next;
 }
 

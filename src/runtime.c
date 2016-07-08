@@ -47,6 +47,7 @@ static bool doRedraw, doYield;
 static SpriteContext *stage;
 static struct SpriteLink *sprites; // hash table of sprites
 static clock_t lastTimerReset;
+static double volume, tempo;
 
 void setStage(SpriteContext *const stageContext) {
 	stage = stageContext;
@@ -54,6 +55,14 @@ void setStage(SpriteContext *const stageContext) {
 
 void setSprites(struct SpriteLink *spriteHashTable) {
 	sprites = spriteHashTable;
+}
+
+void setVolume(const double newVolume) {
+	volume = newVolume;
+}
+
+void setTempo(const double newTempo) {
+	tempo = newTempo;
 }
 
 static dynarray askResponse;

@@ -647,25 +647,42 @@ static bool attemptToParseSpriteProperty(void) {
 	if(tokceq("variables")) {
 		puts("variables");
 		parseVariables();
-		return true;
 	}
 	else if(tokceq("lists")) {
 		puts("lists");
 		parseLists();
-		return true;
 	}
 	else if(tokceq("scripts")) {
 		puts("scripts");
 		parseScripts();
-		return true;
 	}
 	else if(tokceq("objName")) {
 		++pos;
 		tokcext(sprite->name);
 		++pos;
-		return true;
 	}
-	return false;
+	else if(tokceq("scratchX")) {
+		++pos;
+		sprite->xpos = strtod(json+tokens[pos].start, (char**)json+tokens[pos].end);
+		++pos;
+	}
+	else if(tokceq("scratchY")) {
+		++pos;
+		sprite->ypos = strtod(json+tokens[pos].start, (char**)json+tokens[pos].end);
+		++pos;
+	}
+	else if(tokceq("scale")) {
+		++pos;
+		sprite->size = strtod(json+tokens[pos].start, (char**)json+tokens[pos].end);
+		++pos;
+	}
+	else if(tokceq("direction")) {
+		++pos;
+		sprite->direction = strtod(json+tokens[pos].start, (char**)json+tokens[pos].end);
+	}
+	else
+		return false;
+	return true;
 }
 
 static inline void initializeSpriteContext(SpriteContext *const c, const enum SpriteScope scope) {
@@ -682,7 +699,7 @@ static inline void initializeSpriteContext(SpriteContext *const c, const enum Sp
 
 	c->xpos = c->ypos = 0.0;
 	c->direction = 90.0;
-	c->size = c->volume = 100.0; c->tempo = 60.0;
+	c->size = 100.0;
 	c->effects.color = c->effects.brightness = c->effects.ghost
 		= c->effects.pixelate = c->effects.mosaic
 		= c->effects.fisheye = c->effects.whirl
@@ -751,10 +768,19 @@ void parseJSON(void) {
 					sprite = &(*(struct SpriteLink**)dynarray_front(sprites))->context;
 				}
 			}
+			else if(tokceq("tempoBPM")) { // TODO
+				++pos;
+				setTempo(strtod(json+tokens[pos].start, (char**)json+tokens[pos].end));
+				++pos;
+			}
 			else // key isn't significant
 				skip();
 		}
 	} while(--nKeysToGo != 0);
+	setVolume(100.0);
+
+	free((void*)sprite->name);
+	sprite->name = "_stage_";
 
 	// cleanup
 	free(tokens);

@@ -18,6 +18,9 @@ extern const blockfunc opsTable[];
 
 extern void initializeAskPrompt(void);
 
+extern void setVolume(const double newVolume);
+extern void setTempo(const double newTempo);
+
 extern void setStage(struct SpriteContext *const stage);
 extern void setSprites(struct SpriteLink *const sprites);
 
