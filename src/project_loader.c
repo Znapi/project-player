@@ -768,7 +768,7 @@ void parseJSON(void) {
 					sprite = &(*(struct SpriteLink**)dynarray_front(sprites))->context;
 				}
 			}
-			else if(tokceq("tempoBPM")) { // TODO
+			else if(tokceq("tempoBPM")) {
 				++pos;
 				setTempo(strtod(json+tokens[pos].start, (char**)json+tokens[pos].end));
 				++pos;

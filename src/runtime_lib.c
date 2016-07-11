@@ -735,13 +735,42 @@ BF(timer_reset) {
 BF(distanceToSprite) { // TODO: distance to _mouse_
 	char *spriteName;
 	const size_t nameLen = toString(arg+0, &spriteName);
-	struct SpriteLink *target;
-	HASH_FIND(hh, sprites, spriteName, nameLen, target);
+	const SpriteContext *const target = getSprite(spriteName, nameLen);
 	if(target == NULL)
 		reportSlot->data.floating = 0.0;
 	else
-		reportSlot->data.floating = hypot(activeSprite->xpos - target->context.xpos, activeSprite->ypos - target->context.ypos);
+		reportSlot->data.floating = hypot(activeSprite->xpos - target->xpos, activeSprite->ypos - target->ypos);
 	reportSlot->type = FLOATING;
+	return NULL;
+}
+
+// TODO: optimize
+BF(attribute_get) {
+	char *attribute, *spriteName;
+
+	size_t len = toString(arg+1, &spriteName);
+	SpriteContext *const sprite = getSprite(spriteName, len);
+
+	len = toString(arg+0, &attribute);
+
+#define RETURN_NONE() {reportSlot->type = FLOATING; reportSlot->data.floating = 0.0; return NULL;}
+#define RETURN_FLOAT(att) {reportSlot->type = FLOATING; reportSlot->data.floating = sprite->att; return NULL;}
+	if(sprite->scope != STAGE) {
+		if(strncmp("x position", attribute, len) == 0) RETURN_FLOAT(xpos);
+		if(strncmp("y position", attribute, len) == 0) RETURN_FLOAT(ypos);
+		if(strncmp("direction", attribute, len) == 0) RETURN_FLOAT(direction);
+		if(strncmp("costume #", attribute, len) == 0) RETURN_NONE(); // TODO
+		if(strncmp("costume name", attribute, len) == 0) RETURN_NONE();
+		if(strncmp("size", attribute, len) == 0) RETURN_FLOAT(size * 100);
+	}
+	else {
+		if(strncmp("background #", attribute, len) == 0) RETURN_NONE();
+		if(strncmp("backdrop #", attribute, len) == 0) RETURN_NONE();
+		if(strncmp("backdrop name", attribute, len) == 0) RETURN_NONE();
+	}
+	if(strncmp("volume", attribute, len) == 0) {reportSlot->type = FLOATING; reportSlot->data.floating = volume; return NULL;}
+
+	getVariable(&sprite->variables, attribute, reportSlot); // will fill out the report slot with 0.0 if it doesn't exist
 	return NULL;
 }
 
@@ -1041,20 +1070,20 @@ BF(gfx_reset) {
 }
 
 BF(size_change) {
-	activeSprite->size += toFloating(arg+0);
+	activeSprite->size += toFloating(arg+0) / 100.0;
 	doRedraw = true;
 	return block->p.next;
 }
 
 BF(size_set) {
-	activeSprite->size = toFloating(arg+0);
+	activeSprite->size = toFloating(arg+0) / 100.0;
 	doRedraw = true;
 	return block->p.next;
 }
 
 BF(size_get) {
 	reportSlot->type = FLOATING;
-	reportSlot->data.floating = activeSprite->size;
+	reportSlot->data.floating = activeSprite->size * 100.0;
 	return NULL;
 }
 

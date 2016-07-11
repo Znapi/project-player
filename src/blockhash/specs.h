@@ -180,7 +180,7 @@ const struct BlockSpec specs[] = {
 	{"timer", "bf_timer_get", r},
 	{"timerReset", "bf_timer_reset", s},
 
-	{"getAttribute:of:", "bf_noop", r},
+	{"getAttribute:of:", "bf_attribute_get", r},
 
 	{"timeAndDate", "bf_noop", r},
 	{"timestamp", "bf_noop", r},

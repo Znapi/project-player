@@ -376,6 +376,16 @@ static const struct ProcedureLink *getProcedure(const char *const label, const s
 }
 
 /**
+	Sprites
+**/
+
+static inline SpriteContext *getSprite(const char *const name, const size_t len) {
+	struct SpriteLink *sprite;
+	HASH_FIND(hh, sprites, name, len, sprite);
+	return &sprite->context;
+}
+
+/**
 	Interpreter
 
 	The interpreter is still simple like in the Flash version.
