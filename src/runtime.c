@@ -42,7 +42,8 @@ static ThreadLink runningThreads = {{{0}}, NULL, NULL, NULL}; // the first item 
 static clock_t currentTime;
 static clock_t dtime;
 static const clock_t workTime = (clock_t).75f * 1000 / 30; // work only for 75% of the alloted frame time. taken from Flash version.
-static bool doRedraw, doYield;
+static bool doYield;
+bool doRedraw;
 
 static SpriteContext *stage;
 static struct SpriteLink *sprites; // hash table of sprites

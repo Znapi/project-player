@@ -23,57 +23,33 @@
 #include "ut/uthash.h"
 
 #include "types/primitives.h"
-#include "ut/dynarray.h"
-
 #include "types/value.h"
 #include "types/block.h"
-#include "types/thread.h"
-#include "types/sprite.h"
 
-#include "zip_loader.h"
 #include "project_loader.h"
 
 #include "runtime.h"
-
-/**
-	Loading a Scratch project is broken up into three parts:
-
-	  * reading the project.json and resources like costumes into memory
-	  * parsing the project.json and organizing resources and what was parsed into sprites
-	  * loading resources into the peripherals and scripts into the runtime
-
-	load() invokes the first and second parts. The second and third part are both done by
-	project_loader.c so that the data parsed doesn't have to pass through this module to get
-	to where it needs to go in the runtime or peripherals.
-
-	No resources should be left over from loading. I've even been thinking about shoving all
-	of the modules for loading into a dynamicly loaded library, so that even the code
-	doesn't stick around.
-**/
-void load() {
-	puts("reading");
-	size_t jsonLength;
-	const char *const json = loadSB2(PROJECT_PATH, &jsonLength);
-	if(jsonLength == 0)
-		return;
-
-	puts("parsing and loading");
-	loadProject(json, jsonLength);
-	puts("done parsing and loading.");
-	free((void*)json);
-}
+#include "peripherals.h"
 
 int main(void) {
-	load();
+	initPeripherals(); // load the peripherals, creating a window, first to give the user immediate feedback that the app is starting, and the OGL context needs to exist for loading costumes
+	if(loadProject(PROJECT_PATH)) return EXIT_FAILURE;
 
 	initializeAskPrompt();
 
 	puts("starting");
 	restartGreenFlagThreads();
 	puts("running");
-	while(stepThreads());
+
+	while(stepThreads()) {
+		peripheralsInputTick();
+		if(doRedraw && windowIsShowing)
+			peripheralsOutputTick();
+	}
+
 	puts("done.");
 
 	// TODO: cleanup afterward
-	return 0;
+	destroyPeripherals();
+	return EXIT_SUCCESS;
 }

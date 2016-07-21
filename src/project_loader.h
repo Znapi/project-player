@@ -1,3 +1,3 @@
 #pragma once
 
-extern void loadProject(const char *const json, const size_t jsonLength);
+extern bool loadProject(const char *const path);

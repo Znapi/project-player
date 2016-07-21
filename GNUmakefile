@@ -3,7 +3,7 @@ CC=cc
 WARNING_FLAGS=-Wall -Wno-visibility
 
 GLOBAL_FLAGS=-O0 -g -fstandalone-debug
-CFLAGS=-DHASH_FUNCTION=HASH_OAT $(WARNING_FLAGS) $(GLOBAL_FLAGS)
+CFLAGS=-DHASH_FUNCTION=HASH_OAT -DGL_GLEXT_PROTOTYPES $(WARNING_FLAGS) $(GLOBAL_FLAGS)
 
 LIBS=-lSOIL -lcmph -liconv -lz
 ifeq ($(OS),Windows_NT)
@@ -12,21 +12,17 @@ else
 ifeq ($(shell uname -s),Darwin)
 G_LIBS += -framework OpenGL -framework SDL2 -framework Cocoa
 else
-#G_LIBS += `sdl2-config --cflags --libs`
+G_LIBS += `sdl2-config --cflags --libs`
 endif
 endif
 
 ### building the executables
 
-EXECUTABLES=phtg player graphics_demo
+EXECUTABLES=phtg player
 
-PLAYER_MODS=main project_loader zip_loader runtime variables value thread strpool jsmn
+PLAYER_MODS=main runtime peripherals project_loader zip_loader variables value thread strpool jsmn
 player: $(addprefix obj/, $(addsuffix .o, $(PLAYER_MODS))) blockops.mphf
-	$(CC) -o $@ $(filter-out %.mphf, $^) $(LIBS) $(GLOBAL_FLAGS)
-
-GRAPHICS_MODS=graphics runtime variables value strpool
-graphics_demo: $(addprefix obj/, $(addsuffix .o, $(GRAPHICS_MODS)))
-	$(CC) -o $@ $^ $(LIBS) $(G_LIBS) $(GLOBAL_FLAGS)
+	$(CC) -o $@ $(filter-out %.mphf, $^) $(LIBS) $(G_LIBS) $(GLOBAL_FLAGS)
 
 PHTG_MODS=phtg
 phtg: $(addprefix obj/, $(addsuffix .o, $(PHTG_MODS)))

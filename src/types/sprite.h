@@ -42,6 +42,8 @@ struct SpriteContext {
 			pixelate, mosaic,
 			fisheye, whirl;
 	} effects;
+
+	const struct Costume *costumes;
 };
 typedef struct SpriteContext SpriteContext;
 

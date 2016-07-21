@@ -2,6 +2,19 @@
 	Project Loader
 	  project_loader.c
 
+	Loading a Scratch project is broken up into three parts:
+
+	  * reading the project.json and resources like costumes into memory
+	  * parsing the project.json and organizing resources and what was parsed into sprites
+	  * loading the organized resources and scripts into the peripherals and runtime
+
+	This module handles the last two parts. The first part is handled by a separate module:
+	zip_loader.c.
+
+	No resources should be left over from loading. I've even been thinking about shoving all
+	of the modules for loading into a dynamicly loaded library, so that even the code
+	doesn't stick around.
+
 	The data that makes up a project can be organized into sprites, and the project.json is
 	also organized this way. For this reason, the parser focuses on a sprite at a time and
 	has a global `sprite` variable. The runtime focuses heavily on the scripts/threads in
@@ -27,6 +40,7 @@
 #include <string.h>
 #include <iconv.h>
 #include <errno.h>
+#include <SDL2/SDL_opengl.h>
 
 #include <cmph.h>
 #include "ut/uthash.h"
@@ -43,13 +57,19 @@
 #include "types/block.h"
 #include "types/sprite.h"
 
+#include "types/costume.h"
+
+#include "zip_loader.h"
+
 #include "value.h"
 #include "variables.h"
 #include "runtime.h"
 
-static const char *json;
+static char *json;
 static jsmntok_t *tokens;
 static unsigned pos;
+
+static struct Resource *resources;
 
 static void tokenizeJson(const size_t jsonLength) {
 #define ERROR(s) {puts("[FATAL]"s); return;}
@@ -94,7 +114,7 @@ static inline cmph_t* loadBlockHashFunc(void) {
 #define tokceq(str) (strncmp(str, gjson(TOKC), tokclen()) == 0)
 
 static void skip(void) {
-	unsigned tokensToSkip = 1;
+	uint32 tokensToSkip = 1;
 	do {
 		tokensToSkip += TOKC.size; // add child tokens to tokensToSkip
 		++pos; // skip token
@@ -253,6 +273,26 @@ static void parseLists(void) {
 	} while(--nListsToGo != 0);
 	++pos; // advance from last property
 	sprite->lists = lists;
+}
+
+static void parseCostumes(void) {
+	++pos; // advance to array of costumes
+	uint32 nCostumesToGo = TOKC.size, i = 0;
+	if(nCostumesToGo == 0) { ++pos; return; }
+	Costume *const costumes = malloc(nCostumesToGo*sizeof(Costume));
+
+	do {
+		++pos;
+		ufastest nPropertiesToGo = TOKC.size;
+		do {
+			++pos; // advance to key
+			skip();
+			--pos;
+		} while(--nPropertiesToGo != 0);
+		++i;
+	} while(--nCostumesToGo != 0);
+	++pos;
+	sprite->costumes = costumes;
 }
 
 /* pos should point to first block of script, and will be left pointing after script */
@@ -656,6 +696,10 @@ static bool attemptToParseSpriteProperty(void) {
 		puts("scripts");
 		parseScripts();
 	}
+	/*else if(tokceq("costumes")) {
+		puts("costumes");
+		parseCostumes();
+		}*/
 	else if(tokceq("objName")) {
 		++pos;
 		tokcext(sprite->name);
@@ -770,7 +814,7 @@ void parseJSON(void) {
 			}
 			else if(tokceq("tempoBPM")) {
 				++pos;
-				setTempo(strtod(json+tokens[pos].start, (char**)json+tokens[pos].end));
+				setTempo(strtod(json+tokens[pos].start, NULL));
 				++pos;
 			}
 			else // key isn't significant
@@ -812,10 +856,17 @@ void loadIntoRuntime(void) {
 	setBroadcastsHashTable(broadcastsHashTable);
 }
 
-void loadProject(const char *const projectJson, const size_t jsonLength) {
-	json = projectJson;
+bool loadProject(const char *const projectPath) {
+	size_t jsonLength;
+	resources = loadSB2(projectPath, (char **)&json, &jsonLength);
+	if(resources == NULL) return true; // loadSB2 prints its own error message
 
 	tokenizeJson(jsonLength);
 	parseJSON();
+
+	free(json);
+	free(resources);
+
 	loadIntoRuntime();
+	return false;
 }

@@ -8,11 +8,13 @@ struct BroadcastThreads {
 };
 
 struct ProcedureLink {
-	Block *script;
+	struct Block *script;
 	uint16 nParameters;
 	char *label;
 	UT_hash_handle hh;
 };
+
+extern bool doRedraw;
 
 extern const blockfunc opsTable[];
 
