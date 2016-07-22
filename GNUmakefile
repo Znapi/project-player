@@ -7,7 +7,7 @@ CFLAGS=-DHASH_FUNCTION=HASH_OAT -DGL_GLEXT_PROTOTYPES $(WARNING_FLAGS) $(GLOBAL_
 
 LIBS=-lSOIL -lcmph -liconv -lz
 ifeq ($(OS),Windows_NT)
-G_LIBS = -lopengl32 -lSDL2
+G_LIBS = -lopengl32 -lSDLmain
 else
 ifeq ($(shell uname -s),Darwin)
 G_LIBS += -framework OpenGL -framework SDL2 -framework Cocoa
