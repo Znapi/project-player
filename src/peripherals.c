@@ -92,16 +92,13 @@ bool initPeripherals(void) {
 	printf("[INFO]SDL version %d.%d.%d\n", v.major, v.minor, v.patch);
 
 	// Init window
-	wnd = SDL_CreateWindow("Unofficial Scratch Project Player", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 480, 360, SDL_WINDOW_SHOWN|SDL_WINDOW_RESIZABLE);
+	wndWidth = 480;
+	wndHeight = 360;
+	wnd = SDL_CreateWindow("Unofficial Scratch Project Player", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, wndWidth, wndHeight, SDL_WINDOW_SHOWN|SDL_WINDOW_RESIZABLE);
 	if(wnd == NULL) {
 		printf("[FATAL]SDL could not create new window. SDL: %s\n", SDL_GetError());
 		return true;
 	}
-	wndID = SDL_GetWindowID(wnd);
-	wndWidth = 480;
-	wndHeight = 360;
-	hasFocus = true; hasMouse = true; windowIsShowing = true;
-	shouldQuit = false;
 
 	// Init OpenGL
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
@@ -110,21 +107,30 @@ bool initPeripherals(void) {
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG);
 	//SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
 	//SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
-
+	
 	gl = SDL_GL_CreateContext(wnd);
 	if(gl == NULL) {
 		printf("[FATAL]SDL could not create an OpenGL context. SDL: %s\n", SDL_GetError());
 		return true;
 	}
+
 	if(SDL_GL_SetSwapInterval(-1) != 0) {
 		printf("[NOTE]SDL could not enable late swap tearing. Trying vsync instead. SDL: %s\n", SDL_GetError());
 		if(SDL_GL_SetSwapInterval(1) != 0)
 			printf("[WARNING]SDL could not enable vsync: %s\n", SDL_GetError());
 	}
+
 	glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+	SDL_GL_SwapWindow(wnd);
+
+	// finish setting OpenGL options
 	//glEnable(GL_MULTISAMPLE);
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+	wndID = SDL_GetWindowID(wnd);
+	hasFocus = true; hasMouse = true; windowIsShowing = true;
+	shouldQuit = false;
 
 	printf("[INFO]OpenGL: version %s ; glsl version %s ; vendor %s ; renderer %s\n", glGetString(GL_VERSION), glGetString(GL_SHADING_LANGUAGE_VERSION), glGetString(GL_VENDOR), glGetString(GL_RENDERER));
 	return false;
@@ -178,7 +184,7 @@ static void drawWindow(void) {
 	glClear(GL_COLOR_BUFFER_BIT);
 }
 
-void peripheralsInputTick(void) {
+bool peripheralsInputTick(void) {
 	static SDL_Event e;
 	while(SDL_PollEvent(&e) != 0) {
 		switch(e.type) {
@@ -206,8 +212,10 @@ void peripheralsInputTick(void) {
 			break;
 		}
 	}
+	return !shouldQuit;
 }
 
 void peripheralsOutputTick(void) {
-		drawWindow();
+	drawWindow();
+	SDL_GL_SwapWindow(wnd);
 }

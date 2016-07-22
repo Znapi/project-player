@@ -41,12 +41,10 @@ int main(void) {
 	restartGreenFlagThreads();
 	puts("running");
 
-	while(stepThreads()) {
-		peripheralsInputTick();
+	do {
 		if(doRedraw && windowIsShowing)
 			peripheralsOutputTick();
-	}
-
+	} while(peripheralsInputTick() && stepThreads());
 	puts("done.");
 
 	// TODO: cleanup afterward
