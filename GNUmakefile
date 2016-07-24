@@ -20,18 +20,13 @@ endif
 
 EXECUTABLES=phtg player
 
-PLAYER_MODS=main runtime peripherals project_loader zip_loader variables value thread strpool jsmn
+PLAYER_MODS=main runtime peripherals project_loader zip_loader jsmn variables value thread strpool
 player: $(addprefix obj/, $(addsuffix .o, $(PLAYER_MODS))) blockops.mphf
-	$(CC) -o $@ $(filter-out %.mphf, $^) $(LIBS) $(G_LIBS) $(GLOBAL_FLAGS)
+	$(CC) -o $@ $(filter %.o, $^) $(LIBS) $(G_LIBS) $(GLOBAL_FLAGS)
 
 PHTG_MODS=phtg
 phtg: $(addprefix obj/, $(addsuffix .o, $(PHTG_MODS)))
 	$(CC) -o $@ $^ -lcmph
-
-# Don't even try to build this target. The build is guarenteed to fail.
-TEST_RUNTIME_MODS=runtime variables value strpool
-test_runtime: $(addprefix obj/, $(addsuffix .o, $(TEST_RUNTIME_MODS)))
-	$(CC) -o $@ $^ -lcheck $(GLOBAL_FLAGS)
 
 .PHONY: all
 all: $(EXECUTABLES)
