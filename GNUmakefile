@@ -5,7 +5,7 @@ WARNING_FLAGS=-Wall -Wno-visibility
 GLOBAL_FLAGS=-O0 -g -fstandalone-debug
 CFLAGS=-DHASH_FUNCTION=HASH_OAT -DGL_GLEXT_PROTOTYPES $(WARNING_FLAGS) $(GLOBAL_FLAGS)
 
-LIBS=-lSOIL -lcmph -liconv -lz
+LIBS=-lcmph -lsoil2 -liconv -lz
 ifeq ($(OS),Windows_NT)
 G_LIBS = -lopengl32 -lSDLmain
 else

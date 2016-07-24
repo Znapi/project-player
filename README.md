@@ -55,6 +55,6 @@ minizip/zlib: http://www.winimage.com/zLibDll/minizip.html
 
 SDL2: https://libsdl.org/
 
-SOIL: http://lonesock.net/soil.html
+SOIL2: https://bitbucket.org/SpartanJ/soil2
 
 uthash: http://troydhanson.github.io/uthash/

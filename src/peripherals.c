@@ -7,7 +7,6 @@
 #include <OpenGL/gl3.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_opengl.h>
-#include <SOIL.h>
 
 #include "ut/uthash.h"
 
