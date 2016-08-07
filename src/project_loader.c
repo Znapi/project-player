@@ -827,7 +827,6 @@ void parseJSON(void) {
 	sprite->name = "_stage_";
 
 	// cleanup
-	free(tokens);
 	cmph_destroy(blockMphf);
 	dynarray_free(charBuffer);
 
@@ -865,6 +864,7 @@ bool loadProject(const char *const projectPath) {
 	parseJSON();
 
 	free(json);
+	free(tokens);
 	free(resources);
 
 	loadIntoRuntime();
