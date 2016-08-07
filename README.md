@@ -19,7 +19,7 @@ For anything else that you don't have installed, if you have a package manager, 
 
 ### Notes
 
-SOIL2 doesn't seems to have any automatic installation. You will need to install the header and built libsoil2.a yourself. On Linux and OS X, this is `sudo mv /<pathtoSOIL>/<OS>/libsoil2.a /usr/local/lib/libsoil2.a` and `sudo cp /<pathtoSOIL2>/src/SOIL2/SOIL2.h /usr/local/include/SOIL2.h. I don't know where they go on Windows.
+SOIL2 doesn't seems to have any automatic installation. You will need to install the header and built libsoil2.a yourself. On Linux and OS X, this is `sudo mv /<pathtoSOIL>/<OS>/libsoil2.a /usr/local/lib/libsoil2.a` and `sudo cp /<pathtoSOIL2>/src/SOIL2/SOIL2.h /usr/local/include/SOIL2.h`. I don't know where they go on Windows.
 
 This project has only been tested on OS X 10.10 and later, though I have tried to make it cross platform. Feel free to test this project on platforms that I haven't!
 
