@@ -1,19 +1,36 @@
 CC=cc
 
-WARNING_FLAGS=-Wall -Wno-visibility
+DEBUG=yes
+PHTG_DEBUG=no
 
-GLOBAL_FLAGS=-g -fstandalone-debug
-CFLAGS=-O0 -DHASH_FUNCTION=HASH_OAT -DGL_GLEXT_PROTOTYPES $(WARNING_FLAGS) $(GLOBAL_FLAGS)
-
-LIBS=-lcmph -lsoil2 -liconv -lz
+CFLAGS=-DHASH_FUNCTION=HASH_OAT -DGL_GLEXT_PROTOTYPES -Wall -Wno-visibility
+LFLAGS=-lcmph -lsoil2 -liconv -lz
 ifeq ($(OS),Windows_NT)
-G_LIBS = -lopengl32 -lSDLmain
+LFLAGS += -lopengl32 -lSDLmain
 else
 ifeq ($(shell uname -s),Darwin)
-G_LIBS += -framework OpenGL -framework SDL2 -framework Cocoa
+LFLAGS += -framework OpenGL -framework SDL2 -framework Cocoa
 else
-G_LIBS += `sdl2-config --cflags --libs`
+LFLAGS += `sdl2-config --cflags --libs`
 endif
+endif
+
+PHTG_CFLAGS=-DHASH_FUNCTION=HASH_OAT -Wall -Wno-visibility
+PHTG_LFLAGS=-lcmph
+
+DEBUG_GLOBAL_FLAGS=-g -fstandalone-debug
+DEBUG_CFLAGS=-O0
+
+ifeq ($(DEBUG),yes)
+CFLAGS += $(DEBUG_CFLAGS) $(DEBUG_GLOBAL_FLAGS)
+else
+CFLAGS += -Ofast
+endif
+
+ifeq ($(PHGT_DEBUG),yes)
+PHTG_CFLAGS += $(DEBUG_CFLAGS) $(DEBUG_GLOBAL_FLAGS)
+else
+PHTG_CFLAGS += -Ofast
 endif
 
 ### building the executables
@@ -22,11 +39,11 @@ EXECUTABLES=phtg player
 
 PLAYER_MODS=main runtime peripherals project_loader zip_loader jsmn variables value thread strpool
 player: $(addprefix obj/, $(addsuffix .o, $(PLAYER_MODS))) blockops.mphf
-	$(CC) -o $@ $(filter %.o, $^) $(LIBS) $(G_LIBS) $(GLOBAL_FLAGS)
+	$(CC) -o $@ $(filter %.o, $^) $(LFLAGS)
 
 PHTG_MODS=phtg
 phtg: $(addprefix obj/, $(addsuffix .o, $(PHTG_MODS)))
-	$(CC) -o $@ $^ -lcmph $(GLOBAL_FLAGS)
+	$(CC) -o $@ $^ -lcmph $(PHTG_LFLAGS)
 
 .PHONY: all
 all: $(EXECUTABLES)
@@ -34,6 +51,12 @@ all: $(EXECUTABLES)
 obj/%.d: src/%.c
 	@set -e; rm -f $@; \
 	$(CC) -MM $(CFLAGS) $< > $@.$$$$; \
+	sed 's,\($*\)\.o[ :]*,\1.o $@ : ,g' < $@.$$$$ > $@; \
+	rm -f $@.$$$$
+
+obj/%.d: src/blockhash/%.c
+	@set -e; rm -f $@; \
+	$(CC) -MM $(PHTG_CFLAGS) $< > $@.$$$$; \
 	sed 's,\($*\)\.o[ :]*,\1.o $@ : ,g' < $@.$$$$ > $@; \
 	rm -f $@.$$$$
 
@@ -51,6 +74,9 @@ DEPS=$(addprefix obj/, $(addsuffix .d, \
 
 obj/%.o: src/%.c obj/%.d
 	$(CC) $(CFLAGS) -c -o $@ $<
+
+obj/%.o: src/blockhash/%.c obj/%.d
+	$(CC) $(PHTG_CFLAGS) -c -o $@ $<
 
 obj/%.o: src/*/%.c obj/%.d
 	$(CC) $(CFLAGS) -c -o $@ $<

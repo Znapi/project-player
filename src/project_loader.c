@@ -275,7 +275,7 @@ static void parseLists(void) {
 	sprite->lists = lists;
 }
 
-static void parseCostumes(void) {
+/*static void parseCostumes(void) {
 	++pos; // advance to array of costumes
 	uint32 nCostumesToGo = TOKC.size, i = 0;
 	if(nCostumesToGo == 0) { ++pos; return; }
@@ -293,7 +293,7 @@ static void parseCostumes(void) {
 	} while(--nCostumesToGo != 0);
 	++pos;
 	sprite->costumes = costumes;
-}
+	}*/
 
 /* pos should point to first block of script, and will be left pointing after script */
 static void allocateScript(Block **const blocks, Value **const values, uint16 nTokensToGo) {
@@ -700,29 +700,24 @@ static bool attemptToParseSpriteProperty(void) {
 		puts("costumes");
 		parseCostumes();
 		}*/
-	else if(tokceq("objName")) {
-		++pos;
-		tokcext(sprite->name);
-		++pos;
-	}
 	else if(tokceq("scratchX")) {
 		++pos;
-		sprite->xpos = strtod(json+tokens[pos].start, (char**)json+tokens[pos].end);
+		sprite->xpos = strtod(json+tokens[pos].start, NULL);
 		++pos;
 	}
 	else if(tokceq("scratchY")) {
 		++pos;
-		sprite->ypos = strtod(json+tokens[pos].start, (char**)json+tokens[pos].end);
+		sprite->ypos = strtod(json+tokens[pos].start, NULL);
 		++pos;
 	}
 	else if(tokceq("scale")) {
 		++pos;
-		sprite->size = strtod(json+tokens[pos].start, (char**)json+tokens[pos].end);
+		sprite->size = strtod(json+tokens[pos].start, NULL);
 		++pos;
 	}
 	else if(tokceq("direction")) {
 		++pos;
-		sprite->direction = strtod(json+tokens[pos].start, (char**)json+tokens[pos].end);
+		sprite->direction = strtod(json+tokens[pos].start, NULL);
 	}
 	else
 		return false;
@@ -792,13 +787,17 @@ void parseJSON(void) {
 				++pos; // advance to first child
 				if(nChildrenToGo != 0) {
 					do {
+						ufastest nSpriteKeysToGo = TOKC.size - 1; // subtract 1 because "objName" is handled outside the loop
+
 						++pos; // advance to first key of next child
 						if(tokceq("objName")) { // if it is a sprite
-
-							--pos; // advance back to containing object
-							ufastest nSpriteKeysToGo = TOKC.size;
 							sprite = newSprite(SPRITE);
-							++pos; // advance back to first key
+
+							// extract sprite name
+							++pos;
+							tokcext(sprite->name);
+							++pos;
+
 							do {
 								if(!attemptToParseSpriteProperty())
 									skip();
@@ -823,7 +822,6 @@ void parseJSON(void) {
 	} while(--nKeysToGo != 0);
 	setVolume(100.0);
 
-	free((void*)sprite->name);
 	sprite->name = "_stage_";
 
 	// cleanup
