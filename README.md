@@ -74,9 +74,9 @@ When starting the player, expect it to print lots of very light debugging inform
 
 ### Bugs
 
-Currently, there is a major bug in project loading that occasionally causes the player to crash.
+I do not know of any bugs as of now, though, surely, there are some.
 
-If you find any other bugs, please report them by opening an issue on the GitHub repository or, if you don't have a GitHub account, on my Scratch profile (username: Znapi).
+If you find any bugs, please report them by opening an issue on the GitHub repository or, if you don't have a GitHub account, on my Scratch profile (username: Znapi).
 
 # Credits
 
