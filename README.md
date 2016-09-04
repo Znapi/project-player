@@ -7,7 +7,6 @@ This project requires:
 * A C compiler (invoked with `cc`)
 * [GNU Make](https://www.gnu.org/software/make/)
 * [SDL2](https://libsdl.org/)
-* [SOIL2](https://bitbucket.org/SpartanJ/soil2) (also requires [premake 4](http://premake.github.io/))
 * [zlib](http://zlib.net)
 * [cmph](http://cmph.sourceforge.net)
 
@@ -15,11 +14,9 @@ On OS X, you can get a C compiler and GNU Make by installing the command line de
 
 On OS X, zlib is already installed. On Linux, it is very likely already installed.
 
-For anything else that you don't have installed, if you have a package manager, try getting whatever you're missing through your package manager first. Else, you will need to install whatever libraries need yourself. Install the libraries where your compiler can find them.
+For anything else that you don't have installed, try getting whatever you're missing through your package manager first, if you have a package manager. If you don't have a package manager, you will need to install whichever libraries you're missing yourself. Install the libraries where your compiler can find them.
 
 ### Notes
-
-SOIL2 doesn't seems to have any automatic installation. You will need to install the header and built libsoil2.a yourself. On Linux and OS X, this is `sudo mv /<pathtoSOIL>/<OS>/libsoil2.a /usr/local/lib/libsoil2.a` and `sudo cp /<pathtoSOIL2>/src/SOIL2/SOIL2.h /usr/local/include/SOIL2.h`. I don't know where they go on Windows.
 
 This project has only been tested on OS X 10.10 and later, though I have tried to make it cross platform. Feel free to test this project on platforms that I haven't!
 

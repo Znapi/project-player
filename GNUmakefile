@@ -4,7 +4,7 @@ DEBUG=yes
 PHTG_DEBUG=no
 
 CFLAGS=-DHASH_FUNCTION=HASH_OAT -DGL_GLEXT_PROTOTYPES -Wall -Wno-visibility
-LFLAGS=-lcmph -lsoil2 -liconv -lz
+LFLAGS=-lcmph -liconv -lz
 ifeq ($(OS),Windows_NT)
 LFLAGS += -lopengl32 -lSDLmain
 else
@@ -37,7 +37,8 @@ endif
 
 EXECUTABLES=phtg player
 
-PLAYER_MODS=main runtime peripherals project_loader zip_loader jsmn variables value thread strpool
+SOIL2_MODS=SOIL2 image_helper image_DXT etc1_utils
+PLAYER_MODS=main runtime peripherals graphics project_loader zip_loader jsmn variables value thread strpool $(SOIL2_MODS)
 player: $(addprefix obj/, $(addsuffix .o, $(PLAYER_MODS))) blockops.mphf
 	$(CC) -o $@ $(filter %.o, $^) $(LFLAGS)
 

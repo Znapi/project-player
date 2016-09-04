@@ -14,7 +14,7 @@
 **/
 
 #include <SDL2/SDL_opengl.h>
-#include <SOIL2.h>
+#include "SOIL2/SOIL2.h"
 
 #define NOUNCRYPT
 /* I just include the C files rather than the headers because this is the only module that
