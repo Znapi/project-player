@@ -97,7 +97,7 @@ struct Resource *loadSB2(const char *const path, char **const json, size_t *cons
 		else {
 			switch(res[i].format) {
 			case BITMAP:
-				res[i].data.textureHandle = SOIL_load_OGL_texture_from_memory((unsigned char*)file, fi.uncompressed_size, 4, 0, SOIL_FLAG_MIPMAPS | SOIL_FLAG_TEXTURE_REPEATS | SOIL_FLAG_INVERT_Y);
+				res[i].data.textureHandle = SOIL_load_OGL_texture_from_memory((unsigned char*)file, fi.uncompressed_size, 4, &res[i].metadata.dimensions.width, &res[i].metadata.dimensions.height, SOIL_FLAG_MIPMAPS | SOIL_FLAG_TEXTURE_REPEATS | SOIL_FLAG_INVERT_Y);
 				if(res[i].data.textureHandle == 0) printf("[ERROR]Could not create texture for \"%s\".\n", fileName);
 				break;
 			case VECTOR: case SOUND: break;
@@ -114,7 +114,7 @@ struct Resource *loadSB2(const char *const path, char **const json, size_t *cons
 	if(unzCloseCurrentFile(zip) != UNZ_OK)
 		puts("[ERROR]Something went wrong when trying to close the project.json.");
 	if(unzClose(zip) != UNZ_OK)
-		puts("[ERROR]Something went wrong when trying to close the sb2(zip).");
+		puts("[ERROR]Something went wrong when trying to close the sb2.");
 
 	return res;
 }

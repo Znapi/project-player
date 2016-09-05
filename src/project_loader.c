@@ -69,7 +69,8 @@ static char *json;
 static jsmntok_t *tokens;
 static unsigned pos;
 
-static struct Resource *resources;
+static struct Resource *costumes;
+//static struct Resource *sounds;
 
 static void tokenizeJson(const size_t jsonLength) {
 #define ERROR(s) {puts("[FATAL]"s); return;}
@@ -275,7 +276,7 @@ static void parseLists(void) {
 	sprite->lists = lists;
 }
 
-/*static void parseCostumes(void) {
+static void parseCostumes(void) {
 	++pos; // advance to array of costumes
 	uint32 nCostumesToGo = TOKC.size, i = 0;
 	if(nCostumesToGo == 0) { ++pos; return; }
@@ -286,14 +287,24 @@ static void parseLists(void) {
 		ufastest nPropertiesToGo = TOKC.size;
 		do {
 			++pos; // advance to key
-			skip();
+			if(tokceq("costumeName")) {
+				++pos; // advance to value
+				tokcext(costumes[i].name);
+			}
+			if(tokceq("baseLayerID")) {
+				++pos;
+				uint32 id = strtol(gjson(TOKC), NULL, 10);
+				costumes[i].texturehandle = resources[i].data.textureHandle;
+			}
+			else
+				skip();
 			--pos;
 		} while(--nPropertiesToGo != 0);
 		++i;
 	} while(--nCostumesToGo != 0);
 	++pos;
 	sprite->costumes = costumes;
-	}*/
+}
 
 /* pos should point to first block of script, and will be left pointing after script */
 static void allocateScript(Block **const blocks, Value **const values, uint16 nTokensToGo) {
@@ -559,10 +570,10 @@ static inline void buildThreadCollections(void) {
 	enum HatType *hatType = NULL;
 	struct ThreadList **broadcastThreadList = NULL;
 	ThreadLink *thread = sprite->threads;
-#define PUSH_ONTO_THREADLIST(list_ptr) {				\
-		ThreadLink **p = (list_ptr)->array+1;				\
+#define PUSH_ONTO_THREADLIST(list_ptr) {					\
+		ThreadLink **p = (list_ptr)->array+1;					\
 		while(*p != NULL) ++p;												\
-		*p = thread;																\
+		*p = thread;																	\
 	}
 
 	while((hatType = dynarray_next(threadTypes, hatType)) != NULL) {
@@ -855,8 +866,8 @@ void loadIntoRuntime(void) {
 
 bool loadProject(const char *const projectPath) {
 	size_t jsonLength;
-	resources = loadSB2(projectPath, (char **)&json, &jsonLength);
-	if(resources == NULL) return true; // loadSB2 prints its own error message
+	costumes = loadSB2(projectPath, (char **)&json, &jsonLength);
+	if(costumes == NULL) return true; // loadSB2 prints its own error message
 
 	tokenizeJson(jsonLength);
 	parseJSON();

@@ -18,11 +18,10 @@
 
 struct Costume {
 	bool isTexture; // true if this costume is already stored on the GPU as a texture
-	union {
-		GLuint textureHandle;
-		// TODO: vector format
-	} data;
+	GLuint textureHandle;
+	GLuint vaoHandle;
 	//uint16 i; // index of costume can be calculated
+	const char *name;
 	UT_hash_handle hh;
 };
 typedef struct Costume Costume;

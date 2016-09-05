@@ -44,6 +44,7 @@ struct SpriteContext {
 	} effects;
 
 	const struct Costume *costumes;
+	const struct Costume *currentCostume;
 };
 typedef struct SpriteContext SpriteContext;
 

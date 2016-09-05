@@ -13,6 +13,8 @@
 #include "types/primitives.h"
 #include "types/costume.h"
 
+#include "graphics.h"
+
 static SDL_Window *wnd;
 static Uint32 wndID;
 static uint16 wndWidth, wndHeight;
@@ -21,64 +23,6 @@ static bool shouldQuit;
 bool windowIsShowing;
 
 static SDL_GLContext gl;
-
-// TODO: move this procedure
-/*static bool readFile(const char *const filePath, char *const output) {
-	printf("[INFO]Loading file %s\n", filePath);
-	long fileSize;
-	FILE *file = fopen(filePath, "r");
-	if(file == NULL) {
-		fclose(file);
-		return true;
-	}
-	fseek(file, 0, SEEK_END);
-	fileSize = ftell(file);
-	rewind(file);
-	fread(output, sizeof(char), fileSize, file);
-	fclose(file);
-
-	//printf("Contents:\n%s\n\n", output);
-	return false;
-	}
-
-static GLint compileShader(const char *const shaderPath, const GLenum type) {
-	char shaderSrc[4096] = {0};
-	GLchar infoLog[512] = {0};
-
-	memset(shaderSrc, 0, sizeof(shaderSrc));
-	memset(infoLog, 0, sizeof(infoLog));
-	if(readFile(shaderPath, shaderSrc)) {
-		printf("[FATAL]Could not read shader file `%s`\n", shaderPath);
-		return 0;
-	}
-	//printf("Shader contents:\n%s\n\n", shaderSrc);
-
-	GLint success;
-	GLint shader = glCreateShader(type);
-	if(shader == 0)
-		return 0;
-
-	const GLchar* shaderSource = &(((GLchar*)shaderSrc)[0]);
-
-	glShaderSource(shader, 1, &shaderSource, NULL);
-	glCompileShader(shader);
-	glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
-	if(!success) {
-		printf("[FATAL]Shader(%s) compilation failed.", shaderPath);
-		glGetShaderInfoLog(shader, 512, NULL, infoLog);
-		printf(" OpenGL:\n``%s\b\b``\n", infoLog);
-		return 0;
-	}
-	return shader;
-}
-
-static inline GLint createShaderProgram(const GLint vertex, const GLint fragment) {
-	GLint shader = glCreateProgram();
-	glAttachShader(shader, vertex);
-	glAttachShader(shader, fragment);
-	glLinkProgram(shader);
-	return shader;
-	}*/
 
 bool initPeripherals(void) {
 	// Init SDL
@@ -132,6 +76,10 @@ bool initPeripherals(void) {
 	shouldQuit = false;
 
 	printf("[INFO]OpenGL: version %s ; glsl version %s ; vendor %s ; renderer %s\n", glGetString(GL_VERSION), glGetString(GL_SHADING_LANGUAGE_VERSION), glGetString(GL_VENDOR), glGetString(GL_RENDERER));
+
+	initGraphics();
+	//initAudio();
+
 	return false;
 }
 
