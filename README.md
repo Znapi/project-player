@@ -16,6 +16,10 @@ On OS X, zlib is already installed. On Linux, it is very likely already installe
 
 For anything else that you don't have installed, try getting whatever you're missing through your package manager first, if you have a package manager. If you don't have a package manager, you will need to install whichever libraries you're missing yourself. Install the libraries where your compiler can find them.
 
+### Update
+
+This project is now abandoned, because an official HTML5 version of Scratch is being developed that will obsolete this project. There is also no way I can compete with the optimizations modern JS engines have that help with implementing many parts of the language (e.g. dynamic arrays, hash tables). Simple speed tests against even the Flash version already look bleak.
+
 ### Notes
 
 This project has only been tested on OS X 10.10 and later, though I have tried to make it cross platform. Feel free to test this project on platforms that I haven't!
