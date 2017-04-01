@@ -69,7 +69,7 @@ static char *json;
 static jsmntok_t *tokens;
 static unsigned pos;
 
-static struct Resource *costumes;
+static struct Resource *resources;
 //static struct Resource *sounds;
 
 static void tokenizeJson(const size_t jsonLength) {
@@ -276,7 +276,7 @@ static void parseLists(void) {
 	sprite->lists = lists;
 }
 
-static void parseCostumes(void) {
+/*static void parseCostumes(void) {
 	++pos; // advance to array of costumes
 	uint32 nCostumesToGo = TOKC.size, i = 0;
 	if(nCostumesToGo == 0) { ++pos; return; }
@@ -304,7 +304,7 @@ static void parseCostumes(void) {
 	} while(--nCostumesToGo != 0);
 	++pos;
 	sprite->costumes = costumes;
-}
+	}*/
 
 /* pos should point to first block of script, and will be left pointing after script */
 static void allocateScript(Block **const blocks, Value **const values, uint16 nTokensToGo) {
@@ -866,8 +866,8 @@ void loadIntoRuntime(void) {
 
 bool loadProject(const char *const projectPath) {
 	size_t jsonLength;
-	costumes = loadSB2(projectPath, (char **)&json, &jsonLength);
-	if(costumes == NULL) return true; // loadSB2 prints its own error message
+	resources = loadSB2(projectPath, (char **)&json, &jsonLength);
+	if(resources == NULL) return true; // loadSB2 prints its own error message
 
 	tokenizeJson(jsonLength);
 	parseJSON();
